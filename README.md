@@ -37,13 +37,6 @@ Commit or safely stash uncommitted changes before pulling. Resolve any merge con
 ## 3. Commit and Push Changes
 
 Before pushing, **inform the team**, sync with the latest `main`, and test your changes.
-
-```bash
-git add .
-git commit -m "Describe your changes"
-git push -u origin feature/your-task-name
-```
-
 For subsequent pushes to the same branch, `git push` is sufficient.
 
 ## 4. Pull Request (PR)
