@@ -21,6 +21,13 @@ Install dependencies and start the application:
 pnpm install
 pnpm dev
 ```
+
+Start server
+
+```bash
+node server/server.js
+```
+
 ---
 ## 2. Branching Rules
 
