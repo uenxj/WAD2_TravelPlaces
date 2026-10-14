@@ -1,26 +1,15 @@
-import { createRouter, createWebHistory } from "vue-router";
+import { createRouter, createWebHistory } from 'vue-router'
+import Home from '/src/views/Home.vue'
+import Play from '/src/views/Play.vue'
+import Explore from '/src/views/Explore.vue'
+import Budget from '/src/views/Budget.vue'
 
-import Home from "../components/home.vue";
-
-
-const routes = [
-    {
-        path: '/',
-        redirect: '/home'
-
-    },
-    {
-        path: '/home',
-        component: Home
-    }
-
-]
-
-
-const router = createRouter({
-    history: createWebHistory(),
-    routes
+export default createRouter({
+  history: createWebHistory(),
+  routes: [
+    { path: '/', component: Home },
+    { path: '/play', component: Play },
+    { path: '/explore/:country', component: Explore },
+    { path: '/budget', component: Budget },
+  ],
 })
-
-
-export default router

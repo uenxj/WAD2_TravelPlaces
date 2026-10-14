@@ -9,6 +9,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "bootstrap": "^5.3.8",
+    "express": "^5.3.0",
+    "globe.gl": "^2.46.2",
     "vue": "^3.5.42",
     "vue-router": "^5.4.0"
   },

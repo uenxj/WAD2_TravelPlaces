@@ -1,4 +1,4 @@
-# WAD2_TravelPlaces
+# GoingSomewhere (G3T1)
 
 ## 1. Project Setup
 
@@ -21,6 +21,13 @@ Install dependencies and start the application:
 pnpm install
 pnpm dev
 ```
+
+Start server
+
+```bash
+node server/server.js
+```
+
 ---
 ## 2. Branching Rules
 
@@ -32,32 +39,14 @@ pnpm dev
 - Finally, Pull from origin/main either using git command or vscode selections
 
 
-
-## 3. Getting the Latest Changes from `main`
-
-While on your own branch, run:
-
-```bash
-git pull origin main
-```
-
-This fetches and merges the latest changes from remote `main` into your current branch. You do not need to switch to `main`.
-
 Commit or safely stash uncommitted changes before pulling. Resolve any merge conflicts before continuing.
 
-## 4. Commit and Push Changes
+## 3. Commit and Push Changes
 
 Before pushing, **inform the team**, sync with the latest `main`, and test your changes.
-
-```bash
-git add .
-git commit -m "Describe your changes"
-git push -u origin feature/your-task-name
-```
-
 For subsequent pushes to the same branch, `git push` is sufficient.
 
-## 5. Pull Request (PR)
+## 4. Pull Request (PR)
 
 After pushing:
 
