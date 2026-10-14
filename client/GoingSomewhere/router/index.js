@@ -1,8 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import Home from '/Users/AZVRE/Downloads/WAD2_TravelPlaces-main/client/GoingSomewhere/src/views/Home.vue'
-import Play from '/Users/AZVRE/Downloads/WAD2_TravelPlaces-main/client/GoingSomewhere/src/views/Play.vue'
-import Explore from '/Users/AZVRE/Downloads/WAD2_TravelPlaces-main/client/GoingSomewhere/src/views/Explore.vue'
-import Budget from '/Users/AZVRE/Downloads/WAD2_TravelPlaces-main/client/GoingSomewhere/src/views/Budget.vue'
+import Home from '/src/views/Home.vue'
+import Play from '/src/views/Play.vue'
+import Explore from '/src/views/Explore.vue'
+import Budget from '/src/views/Budget.vue'
 
 export default createRouter({
   history: createWebHistory(),
