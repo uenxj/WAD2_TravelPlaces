@@ -1,4 +1,4 @@
-# WAD2_TravelPlaces
+# GoingSomewhere (G3T1)
 
 ## 1. Project Setup
 
