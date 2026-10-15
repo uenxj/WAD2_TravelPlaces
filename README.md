@@ -25,7 +25,7 @@ pnpm dev
 Start server
 
 ```bash
-node server/server.js
+node server.js
 ```
 
 ---
