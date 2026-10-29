@@ -1,6 +1,5 @@
 <script>
 
-const tripId = new URLSearchParams(location.search).get('trip') || 'demo-trip'
 const API = '/api'
 
 async function api(path, options = {}) {
@@ -22,10 +21,14 @@ async function api(path, options = {}) {
 
 export default {
     name: 'BudgetPlanner',
+    props: {
+        tripId: { type: String, default: '' },
+        destinationCurrency: { type: String, default: 'JPY' },
+        embedded: { type: Boolean, default: false },
+    },
 
     data() {
         return {
-            tripId,
             loading: true,
             busy: false,
             toast: '',
@@ -36,16 +39,19 @@ export default {
             form: {
                 total: 2000,
                 homeCurrency: 'SGD',
-                destCurrency: 'JPY',
+                destCurrency: this.destinationCurrency,
                 categories: [],
             },
-            expense: { amount: null, currency: 'JPY', category: '', note: '' },
+            expense: { amount: null, currency: this.destinationCurrency, category: '', note: '' },
             preview: null,
             previewTimer: null,
         }
     },
 
     computed: {
+        budgetTripId() {
+            return this.tripId || (typeof this.$route.query.trip === 'string' ? this.$route.query.trip : 'demo-trip')
+        },
         allocatedSum() {
             return this.form.categories.reduce((s, c) => s + (Number(c.allocated) || 0), 0)
         },
@@ -55,6 +61,18 @@ export default {
     },
 
     watch: {
+        async budgetTripId() {
+            this.summary = null
+            this.expenses = []
+            this.expense.amount = null
+            this.preview = null
+            this.filter = ''
+            this.editingBudget = false
+            clearTimeout(this.previewTimer)
+            this.loading = true
+            await this.refresh()
+            this.loading = false
+        },
         'expense.amount': 'schedulePreview',
         'expense.currency': 'schedulePreview',
     },
@@ -91,11 +109,13 @@ export default {
         },
 
         async refresh() {
+            const requestedTrip = this.budgetTripId
             try {
                 const [summary, expenses] = await Promise.all([
-                    api(`/trips/${tripId}/budget/summary`),
-                    api(`/trips/${tripId}/expenses`),
+                    api(`/trips/${encodeURIComponent(this.budgetTripId)}/budget/summary`),
+                    api(`/trips/${encodeURIComponent(this.budgetTripId)}/expenses`),
                 ])
+                if (requestedTrip !== this.budgetTripId) return
                 this.summary = summary
                 this.expenses = expenses
                 if (!this.expense.category) this.expense.category = summary.categories[0]?.name || ''
@@ -103,6 +123,7 @@ export default {
                     this.expense.currency = summary.destCurrency
                 }
             } catch (e) {
+                if (requestedTrip !== this.budgetTripId) return
                 if (e.status === 404) { this.summary = null; return } // no budget yet -> show setup
                 this.flash(e.message)
             }
@@ -122,7 +143,7 @@ export default {
         async saveBudget() {
             try {
                 this.busy = true
-                await api(`/trips/${tripId}/budget`, { method: 'PUT', body: this.form })
+                await api(`/trips/${encodeURIComponent(this.budgetTripId)}/budget`, { method: 'PUT', body: this.form })
                 this.editingBudget = false
                 await this.refresh()
             } catch (e) {
@@ -151,7 +172,7 @@ export default {
         async addExpense() {
             try {
                 this.busy = true
-                await api(`/trips/${tripId}/expenses`, { method: 'POST', body: this.expense })
+                await api(`/trips/${encodeURIComponent(this.budgetTripId)}/expenses`, { method: 'POST', body: this.expense })
                 this.expense.amount = null
                 this.expense.note = ''
                 this.preview = null
@@ -177,12 +198,12 @@ export default {
 </script>
 
 <template>
-    <div class="budget-page">
+    <div class="budget-page" :class="{ embedded }">
         <div class="container budget-container py-3 pb-5">
 
             <header class="d-flex justify-content-between align-items-center mb-3">
                 <h1 class="h4 mb-0">Budget Planner</h1>
-                <span class="text-muted small" data-testid="trip-id">Trip: {{ tripId }}</span>
+                <span class="text-muted small" data-testid="trip-id">Trip: {{ budgetTripId }}</span>
             </header>
 
             <div v-if="toast" class="alert alert-danger py-2" role="alert" data-testid="error">{{ toast }}</div>
@@ -197,17 +218,17 @@ export default {
                         <div class="col-12 col-md-4">
                             <label class="form-label">Total budget</label>
                             <input type="number" min="1" step="0.01" class="form-control" v-model.number="form.total"
-                                required data-testid="total-input">
+                                required aria-label="Total budget" data-testid="total-input">
                         </div>
                         <div class="col-6 col-md-4">
                             <label class="form-label">Home currency</label>
                             <input class="form-control text-uppercase" maxlength="3" v-model="form.homeCurrency"
-                                required data-testid="home-input">
+                                required aria-label="Home currency" data-testid="home-input">
                         </div>
                         <div class="col-6 col-md-4">
                             <label class="form-label">Destination currency</label>
                             <input class="form-control text-uppercase" maxlength="3" v-model="form.destCurrency"
-                                required data-testid="dest-input">
+                                required aria-label="Destination currency" data-testid="dest-input">
                         </div>
                     </div>
 
@@ -217,10 +238,10 @@ export default {
                             evenly</button>
                     </div>
                     <div class="row g-2 mb-2" v-for="(c, i) in form.categories" :key="i">
-                        <div class="col-7"><input class="form-control" v-model="c.name" placeholder="Category" required>
+                        <div class="col-7"><input class="form-control" v-model="c.name" :aria-label="`Category ${i + 1} name`" placeholder="Category" required>
                         </div>
-                        <div class="col-4"><input type="number" min="0" step="0.01" class="form-control"
-                                v-model.number="c.allocated" required :data-testid="'alloc-' + i"></div>
+                        <div class="col-12 col-sm-4"><input type="number" min="0" step="0.01" class="form-control"
+                                v-model.number="c.allocated" required :aria-label="`Category ${i + 1} allocation`" :data-testid="'alloc-' + i"></div>
                         <div class="col-1 d-grid"><button type="button" class="btn btn-outline-danger"
                                 @click="form.categories.splice(i, 1)" aria-label="Remove category">×</button></div>
                     </div>
@@ -231,7 +252,7 @@ export default {
                         Allocated {{ fmt(allocatedSum) }} of {{ fmt(form.total || 0) }}
                     </div>
 
-                    <button class="btn btn-primary" data-testid="save-budget">Save budget</button>
+                    <button class="btn btn-primary" :disabled="busy" data-testid="save-budget">Save budget</button>
                     <button type="button" class="btn btn-link" v-if="summary"
                         @click="editingBudget = false">Cancel</button>
                 </form>
@@ -251,19 +272,19 @@ export default {
 
                 <!-- summary cards -->
                 <div class="row g-2 mb-3">
-                    <div class="col-4">
+                    <div class="col-12 col-sm-4">
                         <div class="card card-body stat">
                             <div class="label">Budget</div>
                             <div class="value" data-testid="total">{{ fmt(summary.total) }}</div>
                         </div>
                     </div>
-                    <div class="col-4">
+                    <div class="col-12 col-sm-4">
                         <div class="card card-body stat">
                             <div class="label">Spent</div>
                             <div class="value" data-testid="spent">{{ fmt(summary.spentTotal) }}</div>
                         </div>
                     </div>
-                    <div class="col-4">
+                    <div class="col-12 col-sm-4">
                         <div class="card card-body stat" :class="{ 'stat-over': summary.remaining < 0 }">
                             <div class="label">Remaining</div>
                             <div class="value" data-testid="remaining">{{ fmt(summary.remaining) }}</div>
@@ -287,10 +308,10 @@ export default {
                     <form @submit.prevent="addExpense" class="row g-2">
                         <div class="col-6 col-md-3">
                             <input type="number" min="0.01" step="0.01" class="form-control" placeholder="Amount"
-                                v-model.number="expense.amount" required data-testid="expense-amount">
+                                v-model.number="expense.amount" required aria-label="Expense amount" data-testid="expense-amount">
                         </div>
                         <div class="col-6 col-md-2">
-                            <select class="form-select" v-model="expense.currency" data-testid="expense-currency">
+                            <select class="form-select" v-model="expense.currency" aria-label="Expense currency" data-testid="expense-currency">
                                 <option :value="summary.destCurrency">{{ summary.destCurrency }}</option>
                                 <option v-if="summary.homeCurrency !== summary.destCurrency"
                                     :value="summary.homeCurrency">{{ summary.homeCurrency }}</option>
@@ -298,13 +319,13 @@ export default {
                         </div>
                         <div class="col-12 col-md-3">
                             <select class="form-select" v-model="expense.category" required
-                                data-testid="expense-category">
+                                aria-label="Expense category" data-testid="expense-category">
                                 <option v-for="c in summary.categories" :key="c.name" :value="c.name">{{ c.name }}
                                 </option>
                             </select>
                         </div>
                         <div class="col-12 col-md-4">
-                            <input class="form-control" placeholder="Note (optional)" v-model="expense.note"
+                            <input class="form-control" aria-label="Expense note" placeholder="Note (optional)" v-model="expense.note"
                                 maxlength="200">
                         </div>
                         <div class="col-12 small text-muted" v-if="preview" data-testid="conversion-preview">
@@ -345,7 +366,7 @@ export default {
                 <section>
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <h2 class="h6 mb-0">Expenses</h2>
-                        <select class="form-select form-select-sm w-auto" v-model="filter">
+                        <select class="form-select form-select-sm w-auto" v-model="filter" aria-label="Filter expenses by category">
                             <option value="">All categories</option>
                             <option v-for="c in summary.categories" :key="c.name" :value="c.name">{{ c.name }}</option>
                         </select>
@@ -380,7 +401,8 @@ export default {
 <style scoped>
 /* Page background lives on this wrapper (not <body>) so other pages are unaffected */
 .budget-page {
-    background: #f6f7f9;
+    background: var(--travel-bg);
+    color: var(--travel-text);
     min-height: calc(100vh - 56px);
     /* minus navbar height */
 }
@@ -435,4 +457,12 @@ export default {
         padding-right: 12px;
     }
 }
+.budget-page.embedded { min-height: auto; }
+.embedded .budget-container { max-width: none; padding-inline: 0; }
+.card, .list-group-item { background: var(--travel-panel); color: var(--travel-text); border-color: var(--travel-border); }
+.text-muted, .stat .label { color: var(--travel-muted) !important; }
+.form-control, .form-select { background-color: var(--travel-bg); color: var(--travel-text); border-color: var(--travel-border); }
+.form-control::placeholder { color: var(--travel-muted); opacity: 1; }
+.btn-outline-secondary { color: var(--travel-muted); border-color: var(--travel-border); }
+.progress { background: #35435a; }
 </style>

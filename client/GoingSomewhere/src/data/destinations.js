@@ -42,5 +42,9 @@ const RAW = [
   },
 ]
 
-// Temporary: every place reuses its hero image in the carousel.
-export const DESTINATIONS = RAW.map((d) => ({ gallery: [d.image, d.image, d.image], ...d }))
+// Neutral illustration for destinations whose photos have not been supplied yet.
+const FALLBACK_IMAGE = `data:image/svg+xml,${encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="600" height="400" viewBox="0 0 600 400"><rect width="600" height="400" fill="#19273d"/><circle cx="300" cy="200" r="110" fill="none" stroke="#b9ddd2" stroke-width="2"/><ellipse cx="300" cy="200" rx="50" ry="110" fill="none" stroke="#b9ddd2" stroke-width="2"/><path d="M190 200h220M205 145h190M205 255h190" stroke="#b9ddd2" stroke-width="2"/></svg>')}`
+export const DESTINATIONS = RAW.map(d => {
+  const image = d.image.endsWith('/placeholder.jpg') ? FALLBACK_IMAGE : d.image
+  return { ...d, image, gallery: [image] }
+})
