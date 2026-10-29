@@ -1,0 +1,26 @@
+/* Shared guest and account UI. */
+:root { --travel-bg: #101a2e; --travel-panel: #19273d; --travel-text: #f5f5f3; --travel-muted: #bdc8d8; --travel-border: #42546b; --travel-accent: #b9ddd2; }
+body { margin: 0; }
+.app-shell { min-height: 100svh; background: var(--travel-bg); color: var(--travel-text); }
+.app-header { width: min(100%, 1440px); margin: auto; padding: 1.5rem 5%; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.app-brand { color: var(--travel-text); text-decoration: none; font-size: clamp(1.05rem, 2.2vw, 1.9rem); font-weight: 700; white-space: nowrap; }
+.app-brand span { font-size: 1.3em; }
+.app-links { display: flex; align-items: center; gap: 1.75rem; }
+.app-links a { color: var(--travel-text); text-decoration: none; white-space: nowrap; }
+.app-links a.router-link-active:not(.primary-action) { color: var(--travel-accent); }
+.primary-action, .secondary-action { display: inline-flex; justify-content: center; align-items: center; gap: .5rem; padding: .8rem 1.6rem; border: 1px solid #6c8a87; border-radius: 999px; color: #fff; background: linear-gradient(110deg, #10312f, #425e5c); text-decoration: none; font: inherit; font-weight: 600; cursor: pointer; }
+.secondary-action { background: transparent; border-color: var(--travel-border); color: var(--travel-text); }
+.primary-action:hover, .secondary-action:hover { color: #fff; border-color: var(--travel-accent); }
+.app-shell a:focus-visible, .app-shell button:focus-visible, .app-shell input:focus-visible, .app-shell select:focus-visible { outline: 3px solid #8ecae6; outline-offset: 4px; }
+.content-page { width: min(100%, 1200px); margin: auto; padding: 2rem 5% 4rem; }
+.page-heading { font-size: clamp(2rem, 4vw, 3.3rem); letter-spacing: -.035em; font-weight: 700; }
+.muted-copy { color: var(--travel-muted); line-height: 1.7; }
+.eyebrow { color: var(--travel-accent); text-transform: uppercase; letter-spacing: .12em; font-size: .75rem; font-weight: 700; }
+.surface { padding: clamp(1.25rem, 3vw, 2.5rem); border: 1px solid var(--travel-border); border-radius: 1.25rem; background: var(--travel-panel); }
+.action-row { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; }
+.form-stack { display: grid; gap: 1rem; }
+.form-stack label { display: grid; gap: .5rem; font-weight: 500; }
+.form-stack input, .form-stack select { width: 100%; min-width: 0; padding: .8rem 1rem; border: 1px solid var(--travel-border); border-radius: .6rem; background: var(--travel-bg); color: var(--travel-text); font: inherit; }
+.ui-notice { padding: 1rem; border: 1px solid #6c8a87; border-radius: .75rem; color: var(--travel-muted); line-height: 1.6; }
+@media (max-width: 600px) { .app-header { padding: 1.25rem 5%; flex-wrap: wrap; } .app-links { gap: .8rem; font-size: .9rem; flex-wrap: wrap; } .app-links .primary-action { padding: .55rem 1rem; } .content-page { padding-top: 1.5rem; } }
+@media (max-width: 360px) { .app-brand { font-size: 1rem; } .app-links { gap: .65rem; font-size: .85rem; } .app-links .primary-action { padding: .45rem .75rem; } }

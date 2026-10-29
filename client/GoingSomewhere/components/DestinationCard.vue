@@ -4,7 +4,7 @@ import { ref, watch } from 'vue'
 const props = defineProps({
   destination: { type: Object, required: true },
 })
-const emit = defineEmits(['close', 'add'])
+const emit = defineEmits(['close', 'add', 'save'])
 
 const weather = ref(null)
 const weatherFailed = ref(false)
@@ -76,8 +76,11 @@ watch(
         </div>
 
         <button class="add" type="button" @click="emit('add', props.destination)">
-          Add to itinerary!
+          Plan a trip here
         </button>
+        <button class="save" type="button" @click="emit('save', props.destination)">Save place</button>
+        <p class="account-hint">Log in to save places or create a trip.</p>
+        <p class="account-hint">Weather data by <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a>.</p>
       </div>
     </div>
   </aside>
@@ -88,7 +91,7 @@ watch(
   position: relative;
   width: 360px;
   flex-shrink: 0;
-  height: calc(100vh - 48px);
+  height: 600px;
   margin: 24px 0 24px 24px;
   background: linear-gradient(180deg, #efe6d6 0%, #dcdcdc 45%, #d9d9d9 100%);
   color: #1b1b1b;
@@ -209,4 +212,7 @@ watch(
 .add:hover {
   background: #1c3561;
 }
+.save { width: 100%; padding: .8rem; border: 1px solid #0d1a33; background: transparent; color: #0d1a33; }
+.account-hint { font-family: system-ui, sans-serif; font-size: .8rem; margin: .75rem 0 0; }
+@media (max-width: 768px) { .dest-card { width: calc(100% - 2rem); margin: 1rem; height: auto; max-height: none; } .scroll { overflow: visible; } }
 </style>
