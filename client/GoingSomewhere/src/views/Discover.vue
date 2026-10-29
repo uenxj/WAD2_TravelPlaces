@@ -1,7 +1,7 @@
 <script setup>
-import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import Globe from 'globe.gl'
-import SideNav from '../../components/SideNav.vue'
 import DestinationCard from '../../components/DestinationCard.vue'
 import { DESTINATIONS } from '../data/destinations.js'
 
@@ -10,7 +10,10 @@ const BUMP = 'https://unpkg.com/three-globe/example/img/earth-topology.png'
 const SNAP_DEGREES = 15 // how close a drop must be to count as a pin
 const DEFAULT_HINT = 'Drag your traveller onto a glowing pin'
 
-const navOpen = ref(false)
+const route = useRoute()
+const router = useRouter()
+const search = ref('')
+const results = computed(() => DESTINATIONS.filter(d => `${d.city} ${d.country}`.toLowerCase().includes(search.value.toLowerCase())))
 const globeEl = ref(null)
 const selected = ref(null)
 const hovered = ref(null)
@@ -55,6 +58,9 @@ watch([selected, hovered], applyPins)
 function selectDestination(d) {
   selected.value = d
   hint.value = ''
+  if (route.query.destination !== d.id) {
+    router.replace({ path: '/discover', query: { ...route.query, destination: d.id } })
+  }
   globe.controls().autoRotate = false
   globe.pointOfView({ lat: d.lat, lng: d.lng, altitude: 1.5 }, 1200)
 }
@@ -62,15 +68,26 @@ function selectDestination(d) {
 function close() {
   selected.value = null
   hint.value = DEFAULT_HINT
+  const { destination, ...query } = route.query
+  router.replace({ path: '/discover', query })
   globe.controls().autoRotate = true
   const pov = globe.pointOfView()
   globe.pointOfView({ ...pov, altitude: 2.6 }, 1000)
 }
 
 function addToItinerary(d) {
-  // TODO: store this in your itinerary state or send it to the API.
-  console.log('Add to itinerary:', d.city)
+  router.push({ path: '/trips/new', query: { destination: d.city, country: d.country, from: route.fullPath } })
 }
+
+function savePlace(d) {
+  router.push({ path: '/saved', query: { destination: d.id, from: route.fullPath } })
+}
+
+function selectFromRoute() {
+  const d = DESTINATIONS.find(d => d.id === route.query.destination)
+  if (d && globe) selectDestination(d)
+}
+watch(() => route.query.destination, selectFromRoute)
 
 // ----- drag and drop -----
 function onDragStart(e) {
@@ -130,6 +147,7 @@ onMounted(() => {
   size()
   resizeObserver = new ResizeObserver(size)
   resizeObserver.observe(globeEl.value)
+  selectFromRoute()
 })
 
 onBeforeUnmount(() => {
@@ -141,7 +159,23 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="discover">
-    <SideNav v-model:open="navOpen" />
+    <section class="discover-intro">
+      <div><p class="eyebrow">Find your next adventure</p><h1 class="page-heading">Discover somewhere new.</h1>
+      <p class="muted-copy">Explore the globe, get a recommendation, or let a little curiosity lead the way.</p></div>
+      <div class="discovery-tools">
+        <RouterLink class="secondary-action" to="/quiz">Travel Preference Quiz <span aria-hidden="true">↗</span></RouterLink>
+        <RouterLink class="secondary-action" to="/play">Guess the Country <span aria-hidden="true">↗</span></RouterLink>
+        <RouterLink class="secondary-action" to="/saved">Saved places</RouterLink>
+      </div>
+      <label class="destination-search" for="destination-search">Find a destination
+        <input id="destination-search" v-model="search" type="search" placeholder="Search by city or country" />
+      </label>
+      <div class="destination-list" aria-label="Destinations">
+        <button v-for="d in results" :key="d.id" type="button" :aria-pressed="selected?.id === d.id"
+          @click="selectDestination(d)">{{ d.city }} <span>{{ d.country }}</span></button>
+        <p v-if="!results.length" class="muted-copy">No destinations found. Try another city or country.</p>
+      </div>
+    </section>
 
     <main class="stage">
       <Transition name="slide-left">
@@ -150,6 +184,7 @@ onBeforeUnmount(() => {
           :destination="selected"
           @close="close"
           @add="addToItinerary"
+          @save="savePlace"
         />
       </Transition>
 
@@ -178,14 +213,13 @@ onBeforeUnmount(() => {
 <style scoped>
 .discover {
   display: flex;
-  height: 100vh;
-  overflow: hidden;
-  background: #060b16;
+  flex-direction: column;
+  background: var(--travel-bg);
   color: #fff;
 }
 
 .stage {
-  flex: 1;
+  min-height: 650px;
   display: flex;
   position: relative;
   min-width: 0;
@@ -195,13 +229,14 @@ onBeforeUnmount(() => {
   flex: 1;
   position: relative;
   min-width: 0;
-  background: radial-gradient(ellipse at center, #1c3561 0%, #0d1a33 35%, #040811 70%, #000 100%);
+  background: radial-gradient(ellipse at center, #1c3561 0%, #101a2e 70%);
 }
 
 .globe {
   position: absolute;
   inset: 0;
   cursor: grab;
+  mask-image: radial-gradient(ellipse at center, #000 62%, transparent 100%);
 }
 
 .globe.targeting {
@@ -217,7 +252,8 @@ onBeforeUnmount(() => {
   color: #9db4cf;
   font-size: 0.9rem;
   pointer-events: none;
-  white-space: nowrap;
+  width: 90%;
+  text-align: center;
 }
 
 .traveller {
@@ -251,6 +287,14 @@ onBeforeUnmount(() => {
   opacity: 0;
 }
 
+.discover-intro { width: min(100%, 1440px); margin: auto; padding: 2rem 5% 0; }
+.discovery-tools { display: flex; flex-wrap: wrap; gap: .75rem; margin: 1.5rem 0; }
+.destination-search { display: grid; gap: .5rem; max-width: 32rem; }
+.destination-search input { padding: .8rem 1rem; background: var(--travel-panel); color: #fff; border: 1px solid var(--travel-border); border-radius: .6rem; }
+.destination-list { display: flex; flex-wrap: wrap; gap: .5rem; margin: 1rem 0; }
+.destination-list button { padding: .6rem 1rem; border: 1px solid var(--travel-border); border-radius: 999px; background: var(--travel-panel); color: #fff; }
+.destination-list button span { color: var(--travel-muted); font-size: .8rem; margin-left: .3rem; }
+.destination-list button[aria-pressed="true"] { border-color: var(--travel-accent); }
 @media (max-width: 768px) {
   .discover {
     flex-direction: column;
@@ -258,5 +302,6 @@ onBeforeUnmount(() => {
   .stage {
     flex-direction: column;
   }
+  .globe-wrap { min-height: 420px; }
 }
 </style>
