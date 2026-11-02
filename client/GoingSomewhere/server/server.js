@@ -12,13 +12,19 @@ const { createStore } = require('./src/store');
 const { createRateService } = require('./src/rates');
 const { createChecklistDb } = require('./src/checklist/checklistDb');
 const { mountChecklist } = require('./src/checklist/checklistRoutes');
+const { createMongoStore } = require('./src/budgetMongoStore');
 
 const PORT = process.env.PORT || 3000;
-const store = createStore(path.join(__dirname, 'data', 'db.json'));
+const checklistDb = createChecklistDb();
+
+// Budget data: the shared team MongoDB when MONGODB_URI is set, otherwise the local JSON file.
+const store = process.env.MONGODB_URI
+  ? createMongoStore({ database: checklistDb.database })
+  : createStore(path.join(__dirname, 'data', 'db.json'));
+console.log(`Budget data: ${process.env.MONGODB_URI ? 'MongoDB' : 'local JSON file (server/data/db.json)'}`);
 const rates = createRateService();
 const app = createApp({ store, rates });
 
-const checklistDb = createChecklistDb();
 mountChecklist(app, { db: checklistDb });
 checklistDb.collection().then(
   () => console.log('Checklist connected to MongoDB'),
