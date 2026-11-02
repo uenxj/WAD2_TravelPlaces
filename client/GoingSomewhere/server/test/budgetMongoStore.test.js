@@ -11,7 +11,7 @@ const { join } = require('node:path');
 const { createApp } = require('../src/app');
 const { createStore } = require('../src/store');
 const { createMongoStore } = require('../src/budgetMongoStore');
-const { createChecklistDb } = require('../src/checklist/checklistDb');
+const { createMongo } = require('../src/mongo');
 
 // Fixed exchange rate so both runs convert the same way.
 const rates = { async getRate(from, to) { return { from, to, rate: from === to ? 1 : 0.01, date: '2026-10-29', stale: false }; } };
@@ -80,7 +80,7 @@ describe('MongoDB budget store matches the JSON store', { skip: !process.env.MON
   let mongoApp;
 
   before(async () => {
-    mongo = createChecklistDb({ dbName });
+    mongo = createMongo({ dbName });
     jsonApp = await start(createStore(join(dir, 'db.json')));
     mongoApp = await start(createMongoStore({ database: mongo.database }));
   });
@@ -88,7 +88,7 @@ describe('MongoDB budget store matches the JSON store', { skip: !process.env.MON
   after(async () => {
     // Drop only the test collections (a read/write-only user may not drop databases).
     const db = await mongo.database();
-    for (const name of ['budgets', 'expenses', 'checklist_items']) await db.collection(name).drop().catch(() => {});
+    for (const name of ['budgets', 'expenses']) await db.collection(name).drop().catch(() => {});
     await mongo.close();
     jsonApp.server.close();
     mongoApp.server.close();
@@ -116,7 +116,7 @@ describe('MongoDB budget store matches the JSON store', { skip: !process.env.MON
 
 describe('MongoDB budget store when the database is down', () => {
   test('budget requests answer 503 with a clear message', async () => {
-    const down = createChecklistDb({ uri: '' }); // not configured
+    const down = createMongo({ uri: '' }); // not configured
     const app = await start(createMongoStore({ database: down.database }));
     try {
       const r = await app.call('GET', '/trips/x/budget');

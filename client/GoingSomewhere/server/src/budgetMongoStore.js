@@ -5,9 +5,9 @@
 // Collections: `budgets` (one document per trip, _id = tripId) and `expenses`.
 
 const crypto = require('crypto');
-const { isConnectionError } = require('./checklist/checklistDb');
+const { isConnectionError } = require('./mongo');
 
-/** `database` returns a Promise<Db>, e.g. createChecklistDb().database (one shared connection). */
+/** `database` returns a Promise<Db>: the server's shared connection (mongo.js). */
 function createMongoStore({ database }) {
   let ready = null;
 
