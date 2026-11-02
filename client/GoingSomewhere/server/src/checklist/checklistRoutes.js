@@ -1,7 +1,7 @@
 const express = require('express');
 const { ObjectId } = require('mongodb');
 const logic = require('./checklistLogic');
-const { isConnectionError } = require('./checklistDb');
+const { isConnectionError } = require('../mongo');
 
 /**
  * Checklist API (all JSON; errors are { error, details? } like the budget API):
