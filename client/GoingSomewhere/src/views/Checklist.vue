@@ -4,7 +4,6 @@ import { useRoute } from 'vue-router'
 import ChecklistItem from '../../components/checklist/ChecklistItem.vue'
 import QuickPack from '../../components/checklist/QuickPack.vue'
 import EssentialsAlert from '../../components/checklist/EssentialsAlert.vue'
-import WhatIfPanel from '../../components/checklist/WhatIfPanel.vue'
 import SuitcaseStage from '../../components/checklist/SuitcaseStage.vue'
 import FinalReview from '../../components/checklist/FinalReview.vue'
 import { checklistApi } from '../checklist/api.js'
@@ -68,6 +67,7 @@ watch(tripId, () => {
   notNeeded.value = readStored('notNeeded')
   finalChecked.value = readStored('finalCheck') === true
   query.value = ''
+  openState.value = {}
   load()
 })
 
@@ -124,6 +124,31 @@ const sections = computed(() => {
   }).filter((s) => s.shown.length)
 })
 
+// ----- folding category cards -----
+// Finished categories fold away on their own in "All"; in "To pack" / "Packed" cards start open.
+// Clicking a header overrides that, remembered separately for each filter.
+// While searching, every card stays open so matches are never hidden.
+const openState = ref({}) // "filter:category" -> open (true) / folded (false), chosen by the user
+const forceOpen = computed(() => !!query.value.trim())
+const openKey = (s) => `${filter.value}:${s.name}`
+function isOpen(s) {
+  if (forceOpen.value) return true
+  return openState.value[openKey(s)] ?? (filter.value !== 'all' || s.packed < s.all.length)
+}
+function toggleSection(s) {
+  if (forceOpen.value) return
+  openState.value = { ...openState.value, [openKey(s)]: !isOpen(s) }
+}
+const allOpen = computed(() => sections.value.every(isOpen))
+function setAllOpen(open) {
+  openState.value = { ...openState.value, ...Object.fromEntries(sections.value.map((s) => [openKey(s), open])) }
+}
+function foldedSummary(s) {
+  const left = s.all.filter((i) => !i.done)
+  if (!left.length) return `All ${s.all.length} packed`
+  return `${left.length} left: ${left.slice(0, 2).map((i) => i.name).join(', ')}${left.length > 2 ? '…' : ''}`
+}
+
 // ----- per-trip preferences kept in this browser (not shared) -----
 const storageKey = (name) => `checklist:${name}:${tripId.value}`
 function readStored(name) {
@@ -176,13 +201,13 @@ const generating = ref(false)
 const tripTypeLabel = computed(() =>
   TRIP_TYPES.filter((t) => tripTypes.value.includes(t.id)).map((t) => t.label).join(' + '),
 )
-const planSize = computed(() => generatePlan({ tripTypes: tripTypes.value }).length)
+const planSize = computed(() => generatePlan(planInput.value).length)
 async function generateList() {
   if (generating.value) return
   generating.value = true
   adding.value = true
   try {
-    const plan = generatePlan({ tripTypes: tripTypes.value })
+    const plan = generatePlan(planInput.value)
     const body = plan.map((p) => toNewItem(p.key, p.source, p.reason))
     let added = []
     for (let i = 0; i < body.length; i += 50) { // the batch API takes up to 50 at a time
@@ -199,9 +224,9 @@ async function generateList() {
   }
 }
 
-// Add one catalogue item by key (from "Don't forget" or "What if…?").
-function addKey(key, reason = null) {
-  addCatalog([{ key, ...ITEMS[key], reason }], reason ? 'suggested' : 'default')
+// Add one catalogue item by key (from "Don't forget").
+function addKey(key) {
+  addCatalog([{ key, ...ITEMS[key] }], 'default')
 }
 
 function toggleTripType(id) {
@@ -210,7 +235,22 @@ function toggleTripType(id) {
   tripTypes.value = TRIP_TYPES.map((t) => t.id).filter((t) => set.has(t))
 }
 
-const suggestions = computed(() => withoutExisting(suggestionsFor({ tripTypes: tripTypes.value }), items.value))
+// ----- what the recommendations are based on -----
+// Today: the trip types the user picks. Later, from teammates' features once they exist
+// (see src/checklist/RECOMMENDATIONS.md):
+//   - itinerary activities -> `activities`, e.g. [{ title: 'Skiing in Niseko' }]
+//   - destination / weather -> `signals`, e.g. [{ tag: 'cold', reason: '…' }]
+// Until then these stay empty, so nothing is invented.
+const itineraryActivities = []
+const tripSignals = []
+
+const planInput = computed(() => ({
+  tripTypes: tripTypes.value,
+  signals: tripSignals,
+  activities: itineraryActivities,
+}))
+
+const suggestions = computed(() => withoutExisting(suggestionsFor(planInput.value), items.value))
 const missingDefaults = computed(() =>
   withoutExisting(DEFAULT_KEYS.map((key) => ({ key, ...ITEMS[key] })), items.value),
 )
@@ -486,17 +526,45 @@ load()
 
       <template v-else>
       <EssentialsAlert v-if="items.length" :items="items" :not-needed="notNeeded" :busy="adding"
-        @add="(key) => addKey(key)" @toggle="toggle" @dismiss="dismissEssential" />
+        @add="addKey" @toggle="toggle" @dismiss="dismissEssential" />
+
+      <!-- Filters + Quick pack on the left, search on the right (spans both columns) -->
+      <div v-if="items.length" class="toolbar">
+        <div class="filters" role="group" aria-label="Show">
+          <button v-for="f in [['all', 'All', items.length], ['todo', 'To pack', remaining], ['packed', 'Packed', packedCount]]"
+            :key="f[0]" type="button" class="filter" :class="{ on: filter === f[0] }"
+            :aria-pressed="filter === f[0]" @click="filter = f[0]">
+            {{ f[1] }} <span class="count">{{ f[2] }}</span>
+          </button>
+        </div>
+        <button v-if="sections.length > 1 && !forceOpen" type="button" class="secondary-action sm" data-testid="fold-all"
+          @click="setAllOpen(!allOpen)">
+          {{ allOpen ? 'Collapse all' : 'Expand all' }}
+        </button>
+        <button v-if="remaining" type="button" class="primary-action sm quick-btn" data-testid="quick-pack"
+          @click="quickPackOpen = true">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+            <rect x="3" y="8" width="18" height="12" rx="2" />
+            <path d="M8 8V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M12 12v4M10 14h4" />
+          </svg>
+          Quick pack
+        </button>
+        <label class="search">
+          <span class="visually-hidden">Search items</span>
+          <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+            <circle cx="11" cy="11" r="6" />
+            <path d="m20 20-4.5-4.5" />
+          </svg>
+          <input v-model="query" type="search" placeholder="Search items…" autocomplete="off" data-testid="search">
+        </label>
+      </div>
 
       <div class="row g-3 g-lg-4">
-        <!-- Sidebar: ideas and what-if (after the list on mobile, right column on desktop) -->
+        <!-- Sidebar: suggestions (after the list on mobile, right column on desktop) -->
         <aside class="col-12 col-lg-4 order-2">
-          <WhatIfPanel v-if="items.length" class="mb-3" :items="items" :busy="adding"
-            @add="(key, reason) => addKey(key, reason)" />
-
           <section class="sheet ideas">
             <h2 class="section-title">Trip-specific ideas</h2>
-            <p class="hint">What does this trip involve? We'll suggest items for what you pick.</p>
+            <p class="hint">What does this trip involve? We'll suggest items, best matches first, with the reason.</p>
             <div class="chips">
               <button v-for="t in TRIP_TYPES" :key="t.id" type="button" class="chip"
                 :class="{ on: tripTypes.includes(t.id) }" :aria-pressed="tripTypes.includes(t.id)"
@@ -509,7 +577,9 @@ load()
               <ul class="suggestions">
                 <li v-for="s in suggestions" :key="s.key">
                   <div class="min-w-0">
-                    <span class="s-name">{{ s.name }}</span>
+                    <span class="s-name">{{ s.name }}
+                      <span class="s-level" :class="s.level.split(' ')[0].toLowerCase()"
+                        :title="`Relevance score ${s.score}`">{{ s.level }}</span></span>
                     <span class="s-why">{{ s.category }} · {{ s.reason }}<template v-if="s.priority === 'optional'"> ·
                         optional</template></span>
                   </div>
@@ -522,8 +592,9 @@ load()
             </template>
             <p v-else-if="tripTypes.length" class="hint mb-0">✓ Everything suggested is already on your list.</p>
 
-            <p class="footnote">Suggestions come only from the trip types you pick. Ideas based on your
-              itinerary will appear here once the itinerary planner is connected.</p>
+            <p class="footnote">Suggestions come from the trip types you pick, plus backups for things that
+              often go wrong. Ideas from your itinerary, destination and weather will appear here once those
+              features are connected.</p>
           </section>
 
           <section v-if="items.length && missingDefaults.length" class="sheet ideas mt-3">
@@ -544,7 +615,7 @@ load()
               <path d="M24 20v-6a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v6M10 32h44M20 52v4M44 52v4" />
             </svg>
             <h2 class="h4">Let's build your packing list</h2>
-            <p>What does this trip involve? Pick any that apply and we'll pack the list for you.</p>
+            <p>What does this trip involve? Pick any that apply and we'll pack the list for you, with a reason for every suggestion.</p>
             <div class="chips gen-chips" role="group" aria-label="Trip types">
               <button v-for="t in TRIP_TYPES" :key="t.id" type="button" class="chip"
                 :class="{ on: tripTypes.includes(t.id) }" :aria-pressed="tripTypes.includes(t.id)"
@@ -567,32 +638,6 @@ load()
           </div>
 
           <template v-else>
-            <div class="toolbar">
-              <div class="filters" role="group" aria-label="Show">
-                <button v-for="f in [['all', 'All', items.length], ['todo', 'To pack', remaining], ['packed', 'Packed', packedCount]]"
-                  :key="f[0]" type="button" class="filter" :class="{ on: filter === f[0] }"
-                  :aria-pressed="filter === f[0]" @click="filter = f[0]">
-                  {{ f[1] }} <span class="count">{{ f[2] }}</span>
-                </button>
-              </div>
-              <label class="search">
-                <span class="visually-hidden">Search items</span>
-                <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
-                  <circle cx="11" cy="11" r="6" />
-                  <path d="m20 20-4.5-4.5" />
-                </svg>
-                <input v-model="query" type="search" placeholder="Search…" autocomplete="off" data-testid="search">
-              </label>
-              <button v-if="remaining" type="button" class="primary-action sm quick-btn" data-testid="quick-pack"
-                @click="quickPackOpen = true">
-                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                  <rect x="3" y="8" width="18" height="12" rx="2" />
-                  <path d="M8 8V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M12 12v4M10 14h4" />
-                </svg>
-                Quick pack
-              </button>
-            </div>
-
             <p v-if="!sections.length" class="sheet empty-filter">
               <template v-if="query.trim()">No items match “{{ query.trim() }}”.
                 <button type="button" class="link-btn" @click="query = ''">Clear search</button></template>
@@ -600,22 +645,32 @@ load()
             </p>
 
             <div class="sections">
-              <section v-for="s in sections" :key="s.name" class="sheet category">
-                <header class="cat-head">
-                  <span class="cat-icon">
-                    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" v-html="s.icon"></svg>
-                  </span>
-                  <h2 class="cat-name">{{ s.name }}</h2>
-                  <Transition name="stamp">
-                    <span v-if="s.packed === s.all.length" class="cat-stamp">Packed</span>
-                  </Transition>
-                  <span class="cat-count">{{ s.packed }}/{{ s.all.length }}</span>
-                </header>
+              <section v-for="s in sections" :key="s.name" class="sheet category" :class="{ folded: !isOpen(s) }"
+                :data-testid="`category-${s.name}`">
+                <h2 class="cat-h">
+                  <button type="button" class="cat-head" :aria-expanded="isOpen(s)" :aria-controls="`cat-${s.name}`"
+                    @click="toggleSection(s)">
+                    <span class="cat-icon">
+                      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" v-html="s.icon"></svg>
+                    </span>
+                    <span class="cat-name">{{ s.name }}</span>
+                    <Transition name="stamp">
+                      <span v-if="s.packed === s.all.length" class="cat-stamp">Packed</span>
+                    </Transition>
+                    <span class="cat-count">{{ s.packed }}/{{ s.all.length }}</span>
+                    <svg class="chev" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+                  </button>
+                </h2>
                 <div class="cat-bar"><span :style="{ width: (s.packed / s.all.length) * 100 + '%' }"></span></div>
-                <ul class="list-unstyled mb-0">
-                  <ChecklistItem v-for="item in s.shown" :key="item.id" :item="item" :busy="pending.has(item.id)"
-                    @toggle="toggle(item)" @save="(patch) => save(item, patch)" @remove="remove(item)" />
-                </ul>
+                <p v-if="!isOpen(s)" class="cat-summary">{{ foldedSummary(s) }}</p>
+                <div :id="`cat-${s.name}`" class="cat-body">
+                  <div class="cat-inner">
+                    <ul class="list-unstyled mb-0">
+                      <ChecklistItem v-for="item in s.shown" :key="item.id" :item="item" :busy="pending.has(item.id)"
+                        @toggle="toggle(item)" @save="(patch) => save(item, patch)" @remove="remove(item)" />
+                    </ul>
+                  </div>
+                </div>
               </section>
             </div>
           </template>
@@ -1149,13 +1204,22 @@ load()
   gap: 0.4rem;
   flex: 1;
   min-width: 120px;
-  max-width: 240px;
+  max-width: 280px;
+  min-height: 38px;
   margin: 0 0 0 auto;
   padding: 0 0.85rem;
   border: 1px solid var(--travel-border);
   border-radius: 999px;
   background: var(--travel-bg);
   color: var(--travel-muted);
+}
+
+/* Desktop: exactly as wide as the sidebar column below it, flush right */
+@media (min-width: 992px) {
+  .search {
+    flex: 0 0 calc((100% + 1.5rem) / 3 - 1.5rem);
+    max-width: none;
+  }
 }
 
 .search:focus-within {
@@ -1246,19 +1310,19 @@ load()
   font-size: 0.88rem;
   line-height: 1.6;
   color: var(--travel-muted);
-  margin: 0.35rem 0 0.75rem;
+  margin: 0.4rem 0 1rem;
 }
 
 .chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-bottom: 0.9rem;
+  gap: 0.55rem 0.5rem;
+  margin-bottom: 1.25rem;
 }
 
 /* Same pill style as the trip tabs */
 .chip {
-  padding: 0.35rem 0.85rem;
+  padding: 0.4rem 0.9rem;
   border: 1px solid var(--travel-border);
   border-radius: 999px;
   background: transparent;
@@ -1277,18 +1341,29 @@ load()
 
 .suggestions {
   list-style: none;
-  padding: 0;
-  margin: 0 0 0.75rem;
-  max-height: 320px;
+  padding: 0 0.75rem 0 0; /* room between the "+ Add" buttons and the scrollbar */
+  margin: 0 0 1rem;
+  max-height: 380px;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--travel-border) transparent;
+}
+
+.suggestions::-webkit-scrollbar {
+  width: 6px;
+}
+
+.suggestions::-webkit-scrollbar-thumb {
+  border-radius: 3px;
+  background: var(--travel-border);
 }
 
 .suggestions li {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.55rem 0;
+  gap: 0.9rem;
+  padding: 0.85rem 0;
   border-bottom: 1px solid var(--travel-border);
 }
 
@@ -1300,14 +1375,40 @@ load()
   display: block;
 }
 
+/* Relevance from the recommendation score */
+.s-level {
+  display: inline-block;
+  margin-left: 0.3rem;
+  padding: 0 0.45rem;
+  border-radius: 999px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  vertical-align: 1px;
+  border: 1px solid var(--travel-border);
+  color: var(--travel-muted);
+}
+
+.s-level.top {
+  border-color: var(--travel-accent);
+  background: #24403f;
+  color: var(--travel-accent);
+}
+
+.s-level.recommended {
+  color: var(--travel-text);
+}
+
 .s-why {
   display: block;
-  font-size: 0.75rem;
+  margin-top: 0.3rem;
+  font-size: 0.76rem;
+  line-height: 1.45;
   color: var(--travel-accent);
 }
 
 .footnote {
-  margin: 0.75rem 0 0;
+  margin: 1.1rem 0 0;
   font-size: 0.75rem;
   line-height: 1.5;
   color: var(--travel-muted);
@@ -1374,10 +1475,71 @@ load()
   align-items: start;
 }
 
+/* The whole header is a button that folds / unfolds the card */
+.cat-h {
+  margin: 0;
+}
+
 .cat-head {
   display: flex;
   align-items: center;
   gap: 0.6rem;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cat-head:focus-visible {
+  outline: 3px solid #8ecae6;
+  outline-offset: 4px;
+  border-radius: 8px;
+}
+
+.chev {
+  flex-shrink: 0;
+  fill: none;
+  stroke: var(--travel-muted);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: transform 0.25s ease;
+}
+
+.folded .chev {
+  transform: rotate(-90deg);
+}
+
+.cat-head:hover .chev {
+  stroke: var(--travel-text);
+}
+
+.cat-summary {
+  margin: 0.5rem 0 0;
+  font-size: 0.82rem;
+  color: var(--travel-muted);
+}
+
+/* Smooth fold: animate the row height from its content to 0 */
+.cat-body {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 0.3s ease;
+}
+
+.cat-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.folded .cat-body {
+  grid-template-rows: 0fr;
+  visibility: hidden; /* folded items leave the tab order and screen readers */
+  transition: grid-template-rows 0.3s ease, visibility 0s linear 0.3s;
 }
 
 .cat-icon {
@@ -1628,7 +1790,9 @@ load()
   .inked .stamp-ring,
   .track-fill,
   .plane,
-  .cat-bar span {
+  .cat-bar span,
+  .cat-body,
+  .chev {
     animation: none;
     transition: none;
   }

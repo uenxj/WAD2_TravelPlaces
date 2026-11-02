@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "test:e2e": "playwright test",
     "server": "node server/server.js",
-    "test:checklist": "node --test server/test/checklist.test.js src/checklist/catalog.test.js src/checklist/shapes.test.js"
+    "test:checklist": "node --test server/test/checklist.test.js src/checklist/catalog.test.js src/checklist/itemArt.test.js src/checklist/recommend.test.js"
   },
   "dependencies": {
     "bootstrap": "^5.3.8",

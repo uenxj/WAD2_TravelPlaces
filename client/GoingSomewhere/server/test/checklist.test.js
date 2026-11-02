@@ -93,8 +93,10 @@ describe('checklist API with MongoDB', { skip: !process.env.MONGODB_URI && 'MONG
     app = await startApp(db);
   });
   after(async () => {
+    // Drop the test collection (an empty database then disappears). A read/write-only
+    // user, like an Atlas app user, may not drop whole databases.
     const col = await db.collection();
-    await col.db.dropDatabase();
+    await col.drop();
     await db.close();
     app.server.close();
   });
