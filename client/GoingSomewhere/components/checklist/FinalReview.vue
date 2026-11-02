@@ -1,6 +1,7 @@
 <script setup>
-// Final departure review: confirm the trip-critical items are really in the bag,
-// then run through the leaving-home checks. All confirmed -> "cleared".
+// Final departure review. Trip-critical items the list already shows as packed are confirmed
+// automatically (shown as a summary); the user only confirms the leaving-home checks, one by one
+// or all at once. All confirmed -> "cleared".
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { essentialsCheck, DEPARTURE_CHECKS } from '../../src/checklist/catalog.js'
 
@@ -9,20 +10,17 @@ const props = defineProps({
 })
 const emit = defineEmits(['done', 'close'])
 
-const checks = computed(() => [
-  ...essentialsCheck(props.items)
-    .filter((e) => e.item)
-    .map((e) => ({ id: 'item-' + e.key, label: e.item.name, group: 'In your bag' })),
-  ...DEPARTURE_CHECKS.map((c) => ({ ...c, group: 'Before you leave' })),
-])
-const groups = computed(() => [...new Set(checks.value.map((c) => c.group))])
+const inBag = computed(() => essentialsCheck(props.items).filter((e) => e.item?.done).map((e) => e.item.name))
 const confirmed = ref(new Set())
-const allDone = computed(() => checks.value.every((c) => confirmed.value.has(c.id)))
+const allDone = computed(() => DEPARTURE_CHECKS.every((c) => confirmed.value.has(c.id)))
 
 function flip(id) {
   const next = new Set(confirmed.value)
   next.has(id) ? next.delete(id) : next.add(id)
   confirmed.value = next
+}
+function confirmAll() {
+  confirmed.value = new Set(DEPARTURE_CHECKS.map((c) => c.id))
 }
 
 const firstBtn = ref(null)
@@ -52,15 +50,23 @@ onBeforeUnmount(() => {
         </div>
         <button type="button" class="fr-close" aria-label="Close final check" @click="emit('close')">×</button>
       </header>
-      <p class="fr-sub">Touch each one to confirm. {{ confirmed.size }} of {{ checks.length }} done.</p>
-      <div class="fr-bar" aria-hidden="true">
-        <span :style="{ width: (confirmed.size / checks.length) * 100 + '%' }"></span>
+      <div v-if="inBag.length" class="fr-group">
+        <h3 class="fr-group-title">In your bag <span class="fr-auto">✓ from your list</span></h3>
+        <ul class="fr-bag" data-testid="final-in-bag">
+          <li v-for="name in inBag" :key="name">✓ {{ name }}</li>
+        </ul>
       </div>
 
-      <div v-for="g in groups" :key="g" class="fr-group">
-        <h3 class="fr-group-title">{{ g }}</h3>
+      <div class="fr-group">
+        <h3 class="fr-group-title">
+          Before you leave
+          <button v-if="!allDone" type="button" class="fr-all" data-testid="final-all-done" @click="confirmAll">All done</button>
+        </h3>
+        <div class="fr-bar" aria-hidden="true">
+          <span :style="{ width: (confirmed.size / DEPARTURE_CHECKS.length) * 100 + '%' }"></span>
+        </div>
         <ul class="fr-list">
-          <li v-for="c in checks.filter((x) => x.group === g)" :key="c.id">
+          <li v-for="c in DEPARTURE_CHECKS" :key="c.id">
             <button ref="firstBtn" type="button" class="fr-check" :class="{ on: confirmed.has(c.id) }"
               :aria-pressed="confirmed.has(c.id)" @click="flip(c.id)">
               <span class="fr-box" aria-hidden="true">
@@ -74,7 +80,7 @@ onBeforeUnmount(() => {
 
       <button type="button" class="primary-action fr-go" :disabled="!allDone" data-testid="final-cleared"
         @click="emit('done')">
-        {{ allDone ? 'Cleared for departure ✈' : `${checks.length - confirmed.size} left to confirm` }}
+        {{ allDone ? 'Cleared for departure ✈' : `${DEPARTURE_CHECKS.length - confirmed.size} left to confirm` }}
       </button>
     </section>
   </div>
@@ -125,13 +131,8 @@ onBeforeUnmount(() => {
   line-height: 1;
 }
 
-.fr-sub {
-  margin: 0.5rem 0 0.5rem;
-  font-size: 0.85rem;
-  color: var(--travel-muted);
-}
-
 .fr-bar {
+  margin-bottom: 0.6rem;
   height: 4px;
   border-radius: 2px;
   background: #2a3a52;
@@ -150,12 +151,57 @@ onBeforeUnmount(() => {
 }
 
 .fr-group-title {
-  margin: 0 0 0.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0 0 0.5rem;
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--travel-accent);
+}
+
+.fr-auto {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: var(--travel-muted);
+}
+
+.fr-all {
+  padding: 0.2rem 0.75rem;
+  border: 1px solid var(--travel-accent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--travel-accent);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+.fr-all:hover {
+  background: #24403f;
+}
+
+/* Items already packed on the list: a compact confirmed summary */
+.fr-bag {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.fr-bag li {
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  background: #24403f;
+  color: #cce9df;
+  font-size: 0.8rem;
 }
 
 .fr-list {

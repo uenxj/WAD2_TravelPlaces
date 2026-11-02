@@ -1,6 +1,7 @@
-// Checklist catalogue: categories, default items and trip-type suggestions.
-// Pure data + functions (no Vue, no fetch) so it is easy to test and to feed
-// from other features later, e.g. the itinerary planner.
+// Checklist catalogue: categories, items (with the situations each one is for), default items
+// and trip types. Pure data + functions (no Vue, no fetch) so it is easy to test.
+// Recommendations are computed from this metadata by recommend.js.
+import { recommend, activitySignals, backupSignals } from './recommend.js'
 
 // Keep in sync with CATEGORIES in server/src/checklist/checklistLogic.js.
 export const CATEGORIES = [
@@ -14,50 +15,64 @@ export const CATEGORIES = [
 
 // Every catalogue item has a stable key. The server refuses a second item
 // with the same key on one trip, which is what stops duplicate suggestions.
+// `needs` lists the situations (tags from recommend.js TAGS) the item is for, with a weight:
+// 3 = core for that situation, 2 = recommended, 1 = nice to have. Items without `needs`
+// are general essentials that come from the starter list instead.
+// `also` (optional) lists other names that mean the same thing, so an item the user typed
+// themselves ("Anker power bank") counts as already on the list.
 export const ITEMS = {
-  passport: { name: 'Passport', category: 'Documents', priority: 'essential' },
+  passport: { name: 'Passport', category: 'Documents', priority: 'essential', needs: { abroad: 3 } },
   bookings: { name: 'Flight & hotel bookings', category: 'Documents', priority: 'essential' },
-  insurance: { name: 'Travel insurance details', category: 'Documents', priority: 'essential' },
-  'visa-docs': { name: 'Visa / entry documents', category: 'Documents', priority: 'essential' },
-  'doc-copies': { name: 'Copies of key documents', category: 'Documents', priority: 'optional' },
+  insurance: { name: 'Travel insurance details', category: 'Documents', priority: 'essential', needs: { abroad: 2, ski: 2, hike: 1 } },
+  'visa-docs': { name: 'Visa / entry documents', category: 'Documents', priority: 'essential', needs: { abroad: 3 } },
+  'doc-copies': { name: 'Copies of key documents', category: 'Documents', priority: 'optional', needs: { abroad: 2, 'lost-docs': 3 }, also: ['copies', 'photocopy', 'passport copy', 'scan'] },
 
   clothes: { name: 'Clothes for each day', category: 'Clothing', priority: 'essential' },
   sleepwear: { name: 'Sleepwear', category: 'Clothing', priority: 'optional' },
-  'walking-shoes': { name: 'Comfortable walking shoes', category: 'Clothing', priority: 'essential' },
-  swimwear: { name: 'Swimwear', category: 'Clothing', priority: 'essential' },
-  sandals: { name: 'Sandals / flip-flops', category: 'Clothing', priority: 'optional' },
-  'hiking-shoes': { name: 'Hiking shoes', category: 'Clothing', priority: 'essential' },
-  'rain-jacket': { name: 'Rain jacket', category: 'Clothing', priority: 'essential' },
-  'warm-jacket': { name: 'Warm jacket', category: 'Clothing', priority: 'essential' },
-  thermals: { name: 'Thermal layers', category: 'Clothing', priority: 'optional' },
-  'gloves-beanie': { name: 'Gloves & beanie', category: 'Clothing', priority: 'optional' },
+  'walking-shoes': { name: 'Comfortable walking shoes', category: 'Clothing', priority: 'essential', needs: { city: 3, hike: 1 } },
+  swimwear: { name: 'Swimwear', category: 'Clothing', priority: 'essential', needs: { beach: 3, swim: 3 } },
+  sandals: { name: 'Sandals / flip-flops', category: 'Clothing', priority: 'optional', needs: { beach: 2, swim: 2, hot: 1 } },
+  'hiking-shoes': { name: 'Hiking shoes', category: 'Clothing', priority: 'essential', needs: { hike: 3 } },
+  'rain-jacket': { name: 'Rain jacket', category: 'Clothing', priority: 'essential', needs: { rain: 3, hike: 2 }, also: ['raincoat', 'rain jacket', 'poncho'] },
+  'warm-jacket': { name: 'Warm jacket', category: 'Clothing', priority: 'essential', needs: { cold: 3, snow: 2, ski: 2 } },
+  thermals: { name: 'Thermal layers', category: 'Clothing', priority: 'optional', needs: { ski: 3, cold: 2, snow: 2 } },
+  'gloves-beanie': { name: 'Gloves & beanie', category: 'Clothing', priority: 'optional', needs: { cold: 3, snow: 2 } },
 
   'phone-charger': { name: 'Phone charger', category: 'Electronics', priority: 'essential' },
-  'power-bank': { name: 'Power bank', category: 'Electronics', priority: 'optional' },
-  adapter: { name: 'Travel plug adapter', category: 'Electronics', priority: 'essential' },
-  'travel-sim': { name: 'Travel SIM / eSIM', category: 'Electronics', priority: 'optional' },
-  'phone-pouch': { name: 'Waterproof phone pouch', category: 'Electronics', priority: 'optional' },
+  'power-bank': { name: 'Power bank', category: 'Electronics', priority: 'optional', needs: { hike: 2, city: 1, ski: 1, battery: 3 }, also: ['power bank', 'powerbank', 'portable charger'] },
+  adapter: { name: 'Travel plug adapter', category: 'Electronics', priority: 'essential', needs: { abroad: 3 }, also: ['adapter', 'adaptor'] },
+  'travel-sim': { name: 'Travel SIM / eSIM', category: 'Electronics', priority: 'optional', needs: { abroad: 2 } },
+  'phone-pouch': { name: 'Waterproof phone pouch', category: 'Electronics', priority: 'optional', needs: { beach: 2, swim: 2, rain: 1 } },
 
   toothbrush: { name: 'Toothbrush & toothpaste', category: 'Toiletries', priority: 'essential' },
   'toiletry-bag': { name: 'Toiletry bag (shampoo, soap, deodorant)', category: 'Toiletries', priority: 'essential' },
-  towel: { name: 'Quick-dry towel', category: 'Toiletries', priority: 'optional' },
-  'lip-balm': { name: 'Lip balm', category: 'Toiletries', priority: 'optional' },
+  towel: { name: 'Quick-dry towel', category: 'Toiletries', priority: 'optional', needs: { swim: 3, beach: 2 } },
+  'lip-balm': { name: 'Lip balm', category: 'Toiletries', priority: 'optional', needs: { cold: 2, ski: 2, snow: 1 } },
 
-  medication: { name: 'Personal medication', category: 'Health', priority: 'essential' },
-  'first-aid': { name: 'Basic first-aid kit', category: 'Health', priority: 'optional' },
-  sunscreen: { name: 'Sunscreen', category: 'Health', priority: 'essential' },
-  'insect-repellent': { name: 'Insect repellent', category: 'Health', priority: 'essential' },
+  medication: { name: 'Personal medication', category: 'Health', priority: 'essential', needs: { unwell: 3 }, also: ['medicine', 'medication', 'prescription', 'painkiller', 'paracetamol'] },
+  'first-aid': { name: 'Basic first-aid kit', category: 'Health', priority: 'optional', needs: { hike: 2, ski: 1, unwell: 3 }, also: ['first aid', 'first-aid', 'bandage', 'plaster'] },
+  sunscreen: { name: 'Sunscreen', category: 'Health', priority: 'essential', needs: { beach: 3, hot: 3, ski: 2, hike: 2, snow: 1, swim: 1 }, also: ['sunscreen', 'sunblock'] },
+  'insect-repellent': { name: 'Insect repellent', category: 'Health', priority: 'essential', needs: { hike: 3, beach: 1, hot: 1 } },
 
   wallet: { name: 'Wallet & bank cards', category: 'Essentials', priority: 'essential' },
   'house-keys': { name: 'House keys', category: 'Essentials', priority: 'essential' },
-  'water-bottle': { name: 'Reusable water bottle', category: 'Essentials', priority: 'optional' },
-  'local-cash': { name: 'Some local cash', category: 'Essentials', priority: 'optional' },
-  sunglasses: { name: 'Sunglasses', category: 'Essentials', priority: 'optional' },
-  daypack: { name: 'Daypack', category: 'Essentials', priority: 'essential' },
-  snacks: { name: 'Trail snacks', category: 'Essentials', priority: 'optional' },
-  umbrella: { name: 'Compact umbrella', category: 'Essentials', priority: 'essential' },
-  'transit-card': { name: 'Transit card / pass', category: 'Essentials', priority: 'optional' },
-  goggles: { name: 'Swimming goggles', category: 'Essentials', priority: 'optional' },
+  'water-bottle': { name: 'Reusable water bottle', category: 'Essentials', priority: 'optional', needs: { hike: 3, hot: 2, city: 1 }, also: ['water bottle', 'flask'] },
+  'local-cash': { name: 'Some local cash', category: 'Essentials', priority: 'optional', needs: { abroad: 2, cash: 3 }, also: ['cash', 'backup card', 'spare card'] },
+  sunglasses: { name: 'Sunglasses', category: 'Essentials', priority: 'optional', needs: { beach: 2, hot: 2, ski: 2, snow: 2 } },
+  daypack: { name: 'Daypack', category: 'Essentials', priority: 'essential', needs: { hike: 3, city: 2 } },
+  snacks: { name: 'Trail snacks', category: 'Essentials', priority: 'optional', needs: { hike: 2, ski: 1 } },
+  umbrella: { name: 'Compact umbrella', category: 'Essentials', priority: 'essential', needs: { rain: 3, city: 1 }, also: ['umbrella'] },
+  'transit-card': { name: 'Transit card / pass', category: 'Essentials', priority: 'optional', needs: { city: 2 } },
+  goggles: { name: 'Swimming goggles', category: 'Essentials', priority: 'optional', needs: { swim: 3, beach: 1 } },
+
+  // Snow & ski
+  'snow-boots': { name: 'Snow boots', category: 'Clothing', priority: 'essential', needs: { snow: 3, ski: 2 } },
+  'ski-pants': { name: 'Ski pants', category: 'Clothing', priority: 'essential', needs: { ski: 3 } },
+  'waterproof-gloves': { name: 'Waterproof gloves', category: 'Clothing', priority: 'essential', needs: { ski: 3, snow: 2 } },
+  'ski-goggles': { name: 'Ski goggles', category: 'Essentials', priority: 'essential', needs: { ski: 3 } },
+  'ski-gear': { name: 'Skis / board (or rental booking)', category: 'Essentials', priority: 'essential', needs: { ski: 3 } },
+  'hand-warmers': { name: 'Hand warmers', category: 'Essentials', priority: 'optional', needs: { ski: 2, cold: 1, snow: 1 } },
+  'lift-pass': { name: 'Lift pass', category: 'Documents', priority: 'optional', needs: { ski: 2 } },
 }
 
 // The starter list every trip can begin with.
@@ -70,76 +85,56 @@ export const DEFAULT_KEYS = [
   'wallet', 'house-keys', 'water-bottle',
 ]
 
-// Trip types the user picks themselves. Not derived from live data.
+// Trip types the user picks themselves: each one is a preset of situation tags.
 export const TRIP_TYPES = [
-  { id: 'beach', label: 'Beach', emoji: '🏖', keys: ['swimwear', 'sunscreen', 'sandals', 'sunglasses', 'towel', 'phone-pouch'] },
-  { id: 'hiking', label: 'Hiking', emoji: '🥾', keys: ['hiking-shoes', 'daypack', 'water-bottle', 'insect-repellent', 'rain-jacket', 'first-aid', 'snacks'] },
-  { id: 'swimming', label: 'Swimming', emoji: '🏊', keys: ['swimwear', 'towel', 'goggles', 'sandals'] },
-  { id: 'international', label: 'Overseas', emoji: '🛂', keys: ['passport', 'visa-docs', 'doc-copies', 'adapter', 'travel-sim', 'local-cash'] },
-  { id: 'cold', label: 'Cold climate', emoji: '❄', keys: ['warm-jacket', 'thermals', 'gloves-beanie', 'lip-balm'] },
-  { id: 'rainy', label: 'Rainy season', emoji: '☔', keys: ['umbrella', 'rain-jacket', 'phone-pouch'] },
-  { id: 'city', label: 'City break', emoji: '🏙', keys: ['walking-shoes', 'daypack', 'transit-card', 'power-bank'] },
-]
-
-// Words in an itinerary activity that imply a trip type. Used by
-// suggestionsFor({ activities }) once the itinerary planner can supply them.
-const ACTIVITY_HINTS = [
-  { type: 'beach', words: ['beach', 'island', 'snorkel', 'sentosa', 'coast', 'surf'] },
-  { type: 'hiking', words: ['hike', 'hiking', 'trek', 'trail', 'mountain', 'national park', 'nature reserve'] },
-  { type: 'swimming', words: ['swim', 'pool', 'water park', 'waterpark', 'hot spring', 'onsen'] },
-  { type: 'cold', words: ['ski', 'snow', 'glacier', 'ice'] },
+  { id: 'beach', label: 'Beach', emoji: '🏖', tags: ['beach', 'hot'] },
+  { id: 'hiking', label: 'Hiking', emoji: '🥾', tags: ['hike'] },
+  { id: 'swimming', label: 'Swimming', emoji: '🏊', tags: ['swim'] },
+  { id: 'international', label: 'Overseas', emoji: '🛂', tags: ['abroad'] },
+  { id: 'cold', label: 'Cold climate', emoji: '❄', tags: ['cold'] },
+  { id: 'rainy', label: 'Rainy season', emoji: '☔', tags: ['rain'] },
+  { id: 'city', label: 'City break', emoji: '🏙', tags: ['city'] },
+  { id: 'snow', label: 'Snow & ski', emoji: '⛷', tags: ['ski', 'snow'] },
 ]
 
 /** Request body for one catalogue item. */
 export function toNewItem(key, source, reason = null) {
-  return { ...ITEMS[key], source, reason, suggestionKey: key }
+  const { name, category, priority } = ITEMS[key]
+  // The API stores reasons of up to 200 characters; an item with many reasons is shortened.
+  const short = reason && reason.length > 200 ? reason.slice(0, 199) + '…' : reason
+  return { name, category, priority, source, reason: short, suggestionKey: key }
 }
 
-/**
- * Build suggestions from trip types the user picked and/or itinerary activities.
- *   tripTypes:  ['beach', ...]           ids from TRIP_TYPES
- *   activities: [{ title: 'Sentosa beach day' }, ...]   from the itinerary, when available
- * Returns [{ key, name, category, priority, reason }], one entry per item,
- * with the reasons merged when several trip types suggest the same thing.
- */
-export function suggestionsFor({ tripTypes = [], activities = [] } = {}) {
-  const reasons = new Map() // key -> [reason]
-  const add = (key, reason) => {
-    if (!ITEMS[key]) return
-    const list = reasons.get(key) ?? []
-    if (!list.includes(reason)) list.push(reason)
-    reasons.set(key, list)
-  }
-
-  for (const id of tripTypes) {
+/** Signals from the trip types the user picked: each type is a preset of tags. */
+function tripTypeSignals(tripTypes = []) {
+  return tripTypes.flatMap((id) => {
     const type = TRIP_TYPES.find((t) => t.id === id)
-    type?.keys.forEach((key) => add(key, `${type.label} trip`))
-  }
-
-  for (const activity of activities) {
-    const title = String(activity?.title ?? '').trim()
-    const text = title.toLowerCase()
-    if (!text) continue
-    for (const hint of ACTIVITY_HINTS) {
-      if (!hint.words.some((w) => text.includes(w))) continue
-      const type = TRIP_TYPES.find((t) => t.id === hint.type)
-      type.keys.forEach((key) => add(key, `Itinerary: “${title}”`))
-    }
-  }
-
-  return [...reasons].map(([key, why]) => ({ key, ...ITEMS[key], reason: why.join(' · ') }))
+    return type ? type.tags.map((tag) => ({ tag, reason: `${type.label} trip` })) : []
+  })
 }
 
 /**
- * A full starting list for a trip: the starter essentials, then everything the chosen
- * trip types suggest (with their reasons). Each key appears once.
- * Returns [{ key, source: 'default' | 'suggested', reason }].
+ * Ranked suggestions for a trip, from every available source (see recommend.js):
+ *   tripTypes:  ['beach', ...]              ids from TRIP_TYPES, picked by the user
+ *   signals:    [{ tag, reason }, ...]      e.g. from destination / weather features, once connected
+ *   activities: [{ title, date?, type?, tags? }, ...]   from the itinerary, when it exists
+ * Returns [{ key, name, category, priority, score, level, reasons, reason }], best first, one per item.
  */
-export function generatePlan({ tripTypes = [], activities = [] } = {}) {
+export function suggestionsFor({ tripTypes = [], signals = [], activities = [] } = {}) {
+  const trip = [...tripTypeSignals(tripTypes), ...signals, ...activitySignals(activities)]
+  return recommend([...trip, ...backupSignals(BACKUPS, trip)])
+}
+
+/**
+ * A full starting list for a trip: the starter essentials, then every suggestion the trip itself
+ * needs (best first, with its reasons). "What if" backups stay as optional suggestions instead.
+ * Each key appears once. Returns [{ key, source: 'default' | 'suggested', reason }].
+ */
+export function generatePlan({ tripTypes = [], signals = [], activities = [] } = {}) {
   const plan = DEFAULT_KEYS.map((key) => ({ key, source: 'default', reason: null }))
   const seen = new Set(DEFAULT_KEYS)
-  for (const s of suggestionsFor({ tripTypes, activities })) {
-    if (seen.has(s.key)) continue
+  for (const s of suggestionsFor({ tripTypes, signals, activities })) {
+    if (seen.has(s.key) || s.backupOnly) continue
     seen.add(s.key)
     plan.push({ key: s.key, source: 'suggested', reason: s.reason })
   }
@@ -155,13 +150,15 @@ export const DEPARTURE_CHECKS = [
 ]
 
 /**
- * Drop suggestions already covered by the checklist: same catalogue key, or a
- * custom item with the same name (so "passport" typed by hand counts too).
+ * Drop suggestions already covered by the checklist: same catalogue key, a custom item with the
+ * same name ("passport" typed by hand), or one matching the item's other names in `also`
+ * ("Anker power bank" covers Power bank).
  */
 export function withoutExisting(suggestions, items) {
   const keys = new Set(items.map((i) => i.suggestionKey).filter(Boolean))
   const names = new Set(items.map((i) => i.name.trim().toLowerCase()))
-  return suggestions.filter((s) => !keys.has(s.key) && !names.has(s.name.toLowerCase()))
+  return suggestions.filter((s) => !keys.has(s.key) && !names.has(s.name.toLowerCase())
+    && !items.some((i) => nameHas(i.name, ITEMS[s.key]?.also ?? [])))
 }
 
 // Words that hint at a category when someone types their own item.
@@ -205,24 +202,17 @@ export function essentialsCheck(items) {
   })
 }
 
-// "What if...?" scenarios: is there a backup on the list for each one?
-export const SCENARIOS = [
-  { id: 'rain', emoji: '☔', label: 'It rains all day', keys: ['umbrella', 'rain-jacket'], words: ['umbrella', 'raincoat', 'rain jacket', 'poncho'] },
-  { id: 'battery', emoji: '🔋', label: 'Your phone dies', keys: ['power-bank'], words: ['power bank', 'powerbank', 'portable charger'] },
-  { id: 'sick', emoji: '🤒', label: 'You feel unwell', keys: ['first-aid', 'medication'], words: ['first aid', 'first-aid', 'medicine', 'medication', 'painkiller', 'paracetamol'] },
-  { id: 'card', emoji: '💳', label: 'Your card gets blocked', keys: ['local-cash'], words: ['cash', 'backup card', 'spare card'] },
-  { id: 'passport', emoji: '🛂', label: 'You lose your passport', keys: ['doc-copies'], words: ['copies', 'photocopy', 'passport copy', 'scan'] },
-  { id: 'plug', emoji: '🔌', label: "The socket doesn't fit", keys: ['adapter'], words: ['adapter', 'adaptor'] },
-  { id: 'heat', emoji: '☀', label: "It's a scorching day", keys: ['sunscreen', 'water-bottle'], words: ['sunscreen', 'sunblock', 'water bottle'] },
+// "What if…?" backups: things that can go wrong on any trip. Each is a tag + reason that the
+// engine adds with lower strength (recommend.js backupSignals). `when` limits a backup to trips
+// that already have those tags. Which items cover a backup is set in the items' `needs`.
+// Supporting a new backup = one row here + that tag in some items' needs (and in TAGS).
+export const BACKUPS = [
+  { tag: 'rain', reason: 'Backup: if it rains all day' },
+  { tag: 'battery', reason: 'Backup: if your phone dies' },
+  { tag: 'unwell', reason: 'Backup: if you feel unwell' },
+  { tag: 'cash', reason: 'Backup: if your card gets blocked' },
+  { tag: 'lost-docs', reason: 'Backup: if you lose your passport', when: ['abroad'] },
 ]
-
-/** For each scenario: covered (and by which item) or the catalogue key that would cover it. */
-export function checkScenarios(items) {
-  return SCENARIOS.map((s) => {
-    const by = items.find((i) => s.keys.includes(i.suggestionKey)) ?? items.find((i) => nameHas(i.name, s.words)) ?? null
-    return { ...s, covered: !!by, by, fixKey: s.keys[0] }
-  })
-}
 
 /**
  * Guess the category for an item name the user typed, or null if unsure.

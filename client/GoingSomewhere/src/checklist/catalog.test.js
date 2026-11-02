@@ -2,8 +2,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
-  CATEGORIES, ITEMS, DEFAULT_KEYS, TRIP_TYPES, CRITICAL, SCENARIOS,
-  suggestionsFor, withoutExisting, guessCategory, essentialsCheck, checkScenarios, generatePlan,
+  CATEGORIES, ITEMS, DEFAULT_KEYS, TRIP_TYPES, CRITICAL, BACKUPS,
+  suggestionsFor, withoutExisting, guessCategory, essentialsCheck, generatePlan,
 } from './catalog.js'
 
 test('generatePlan: starter essentials plus trip-type items, each once, with reasons', () => {
@@ -24,7 +24,8 @@ test('generatePlan: starter essentials plus trip-type items, each once, with rea
 test('every catalogue item uses a known category', () => {
   const names = CATEGORIES.map((c) => c.name)
   for (const [key, item] of Object.entries(ITEMS)) assert.ok(names.includes(item.category), key)
-  for (const key of [...DEFAULT_KEYS, ...TRIP_TYPES.flatMap((t) => t.keys)]) assert.ok(ITEMS[key], key)
+  for (const key of DEFAULT_KEYS) assert.ok(ITEMS[key], key)
+  for (const t of TRIP_TYPES) assert.ok(t.tags.length, `${t.id} has tags`)
 })
 
 test('trip types suggest items once, with merged reasons', () => {
@@ -35,11 +36,11 @@ test('trip types suggest items once, with merged reasons', () => {
 })
 
 test('itinerary activities map to suggestions with the activity as reason', () => {
-  const list = suggestionsFor({ activities: [{ title: 'Sentosa beach day' }, { title: 'Museum visit' }] })
+  const list = suggestionsFor({ activities: [{ title: 'Sentosa beach day' }, { title: 'Dinner with friends' }] })
   const sunscreen = list.find((s) => s.key === 'sunscreen')
   assert.ok(sunscreen)
   assert.match(sunscreen.reason, /Sentosa beach day/)
-  assert.ok(!list.some((s) => s.reason.includes('Museum')))
+  assert.ok(!list.some((s) => s.reason.includes('Dinner')))
 })
 
 test('existing items are filtered out by key or by name', () => {
@@ -52,8 +53,34 @@ test('existing items are filtered out by key or by name', () => {
   assert.equal(left.length, list.length - 2)
 })
 
-test('no trip types and no activities means no suggestions', () => {
-  assert.deepEqual(suggestionsFor(), [])
+test('with nothing picked, only the always-on backups are suggested', () => {
+  const list = suggestionsFor()
+  assert.ok(list.length > 0)
+  assert.ok(list.every((s) => s.backupOnly && s.reasons.every((r) => r.startsWith('Backup:'))))
+  assert.ok(!list.some((s) => s.key === 'doc-copies'), 'lost-passport backup only applies abroad')
+  assert.ok(list.every((s) => s.level === 'Nice to have'))
+})
+
+test('backups rank below what the trip needs and stay out of the generated list', () => {
+  const list = suggestionsFor({ tripTypes: ['international'] })
+  const adapter = list.findIndex((s) => s.key === 'adapter')
+  const copies = list.find((s) => s.key === 'doc-copies')
+  const cash = list.findIndex((s) => s.key === 'local-cash')
+  assert.ok(adapter < list.findIndex((s) => s.key === 'power-bank'), 'trip need before backup-only item')
+  assert.deepEqual(copies.reasons, ['Overseas trip', 'Backup: if you lose your passport'])
+  assert.ok(cash >= 0)
+  const plan = generatePlan({ tripTypes: ['international'] }).map((p) => p.key)
+  assert.ok(plan.includes('adapter') && plan.includes('doc-copies'))
+  assert.ok(!plan.includes('umbrella') && !plan.includes('first-aid'), 'backup-only items are not auto-added')
+})
+
+test('items typed by hand count as covering a suggestion (via `also`)', () => {
+  const left = withoutExisting(suggestionsFor(), [
+    { name: 'Anker power bank', suggestionKey: null },
+    { name: 'Raincoat', suggestionKey: null },
+  ])
+  assert.ok(!left.some((s) => s.key === 'power-bank' || s.key === 'rain-jacket'))
+  assert.ok(left.some((s) => s.key === 'umbrella'))
 })
 
 test('guessCategory sorts typed items, longest keyword first', () => {
@@ -72,9 +99,9 @@ test('guessCategory sorts typed items, longest keyword first', () => {
   for (const [name, category] of Object.entries(cases)) assert.equal(guessCategory(name), category, name)
 })
 
-test('critical items and scenarios only point at real catalogue items', () => {
+test('critical items point at real items, and every backup is covered by some item', () => {
   for (const c of CRITICAL) assert.ok(ITEMS[c.key], c.key)
-  for (const s of SCENARIOS) for (const key of s.keys) assert.ok(ITEMS[key], `${s.id}: ${key}`)
+  for (const b of BACKUPS) assert.ok(Object.values(ITEMS).some((i) => i.needs?.[b.tag]), b.tag)
 })
 
 test('essentialsCheck finds missing, unpacked and packed items, including typed ones', () => {
@@ -88,20 +115,6 @@ test('essentialsCheck finds missing, unpacked and packed items, including typed 
     passport: 'packed', bookings: 'missing', wallet: 'missing',
     'phone-charger': 'unpacked', medication: 'missing', 'house-keys': 'packed',
   })
-})
-
-test('checkScenarios reports what covers each scenario', () => {
-  const result = checkScenarios([
-    { name: 'Compact umbrella', suggestionKey: 'umbrella', done: false },
-    { name: 'Anker power bank', suggestionKey: null, done: true },
-  ])
-  const by = Object.fromEntries(result.map((r) => [r.id, r]))
-  assert.equal(by.rain.covered, true)
-  assert.equal(by.rain.by.name, 'Compact umbrella')
-  assert.equal(by.battery.covered, true)
-  assert.equal(by.plug.covered, false)
-  assert.equal(by.plug.fixKey, 'adapter')
-  assert.equal(result.filter((r) => r.covered).length, 2)
 })
 
 test('guessCategory returns null when unsure', () => {

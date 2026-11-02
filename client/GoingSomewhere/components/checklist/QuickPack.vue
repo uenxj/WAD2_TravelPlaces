@@ -3,7 +3,7 @@
 // Pack = button, P key or swipe right. Skip = button, S / → key or swipe left. Esc closes.
 import { ref, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { CATEGORIES } from '../../src/checklist/catalog.js'
-import { SHAPES, shapeFor, CATEGORY_TINTS } from '../../src/checklist/shapes.js'
+import { artUrl } from '../../src/checklist/itemArtUrls.js'
 
 const props = defineProps({
   items: { type: Array, required: true },
@@ -26,8 +26,6 @@ const touchHint = typeof window !== 'undefined' && window.matchMedia?.('(pointer
 
 const current = computed(() => props.items.find((i) => i.id === queue.value[index.value]) ?? null)
 const finished = computed(() => index.value >= queue.value.length)
-const shape = computed(() => (current.value ? SHAPES[shapeFor(current.value)] : ''))
-const tint = computed(() => CATEGORY_TINTS[current.value?.category] ?? '#b9ddd2')
 
 async function advance() {
   index.value++
@@ -125,8 +123,7 @@ onBeforeUnmount(() => {
             :style="{ transform: `translateX(${dragX}px) rotate(${dragX / 18}deg)` }"
             :class="{ dragging: dragX !== 0, 'lean-pack': dragX > 40, 'lean-skip': dragX < -40 }"
             @pointerdown="onDown" @pointermove="onMove" @pointerup="onUp" @pointercancel="onUp">
-            <svg class="qp-shape" viewBox="0 0 40 40" width="84" height="84" aria-hidden="true"
-              :style="{ '--c': tint }" v-html="shape"></svg>
+            <img class="qp-shape" :src="artUrl(current)" alt="" draggable="false">
             <p class="qp-cat">{{ current.category }}</p>
             <h3 class="qp-name">{{ current.name }}</h3>
             <div class="qp-tags">
@@ -283,14 +280,10 @@ onBeforeUnmount(() => {
 }
 
 .qp-shape {
+  width: 84px;
+  height: 84px;
   margin-bottom: 0.5rem;
-  overflow: visible;
-  fill: var(--c);
-  stroke: #0f1a2c;
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  filter: drop-shadow(0 8px 8px rgba(0, 0, 0, 0.45));
+  filter: saturate(0.45) brightness(0.92) drop-shadow(0 8px 8px rgba(0, 0, 0, 0.45));
   animation: bob 2.6s ease-in-out infinite;
 }
 
