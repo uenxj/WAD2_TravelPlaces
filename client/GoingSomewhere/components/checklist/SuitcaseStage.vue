@@ -678,7 +678,10 @@ function ghostStyle(item) {
   .token,
   .lid,
   .ok,
-  .meter span {
+  .stage,
+  .base,
+  .hinge,
+  .handle {
     transition: none;
   }
 

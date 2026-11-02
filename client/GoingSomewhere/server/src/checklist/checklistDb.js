@@ -56,12 +56,18 @@ function createChecklistDb({
     return ready;
   }
 
+  /** The database itself, so other features (the budget store) can share this one connection. */
+  async function database() {
+    await collection();
+    return client.db(dbName);
+  }
+
   async function close() {
     ready = null;
     await client?.close();
   }
 
-  return { collection, close };
+  return { collection, database, close };
 }
 
 /** True for driver errors that mean "the database is unreachable", as opposed to a bad request. */
@@ -69,4 +75,4 @@ function isConnectionError(err) {
   return /^Mongo(ServerSelection|Network|NetworkTimeout|NotConnected|TopologyClosed)Error$/.test(err?.name || '');
 }
 
-module.exports = { createChecklistDb, isConnectionError, COLLECTION };
+module.exports = { createChecklistDb, isConnectionError };
