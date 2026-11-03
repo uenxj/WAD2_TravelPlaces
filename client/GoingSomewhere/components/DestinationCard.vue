@@ -1,5 +1,6 @@
 <script setup>
 import { ref, watch } from 'vue'
+import { getCurrentTemperature } from '../src/weather/api.js'
 
 const props = defineProps({
   destination: { type: Object, required: true },
@@ -14,15 +15,10 @@ async function loadWeather(d) {
   weather.value = null
   weatherFailed.value = false
   try {
-    const url =
-      `https://api.open-meteo.com/v1/forecast?latitude=${d.lat}&longitude=${d.lng}` +
-      `&current=temperature_2m`
-    const res = await fetch(url)
-    if (!res.ok) throw new Error(`weather request failed: ${res.status}`)
-    const data = await res.json()
+    const temperature = await getCurrentTemperature(d)
     // Ignore the response if the user has already picked a different place.
     if (props.destination.id !== d.id) return
-    weather.value = `${Math.round(data.current.temperature_2m)}${data.current_units.temperature_2m}`
+    weather.value = temperature
   } catch (err) {
     console.error(err)
     if (props.destination.id === d.id) weatherFailed.value = true
@@ -56,10 +52,11 @@ watch(
         <h4 class="label">Description</h4>
         <p class="text">{{ props.destination.description }}</p>
 
-        <h4 class="label">Weather</h4>
+        <h4 class="label">Current temperature</h4>
         <p class="text">
           {{ weather ?? (weatherFailed ? 'Unavailable' : 'Loading…') }}
         </p>
+        <RouterLink class="weather-link" :to="{ path: '/weather', query: { destination: props.destination.id } }">Check weather &amp; air quality for your dates →</RouterLink>
 
         <h4 class="label">Picture collage</h4>
         <div class="gallery">
@@ -80,6 +77,7 @@ watch(
 </template>
 
 <style scoped>
+.weather-link { display: inline-block; color: #163c55; font-family: system-ui, sans-serif; font-size: .85rem; line-height: 1.5; margin-bottom: 1rem; }
 .dest-card {
   position: relative;
   width: 360px;

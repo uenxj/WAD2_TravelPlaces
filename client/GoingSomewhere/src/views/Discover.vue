@@ -179,6 +179,10 @@ onBeforeUnmount(() => {
           <p class="eyebrow">Find your next adventure</p>
           <h1 class="page-heading">Discover somewhere new.</h1>
           <p class="muted-copy">Explore the globe, get a recommendation, or let a little curiosity lead the way.</p>
+          <div class="action-row mt-3">
+            <RouterLink class="secondary-action" to="/quiz">Travel Preference Quiz</RouterLink>
+            <RouterLink class="secondary-action" to="/play">Guess the Country</RouterLink>
+          </div>
         </section>
         <div v-else key="card" class="card-view d-flex justify-content-center align-items-center py-3 py-lg-0">
           <DestinationCard :destination="selected" @close="close" @add="addToItinerary" @save="savePlace" />
@@ -253,7 +257,12 @@ onBeforeUnmount(() => {
   position: absolute;
   inset: 0;
   cursor: grab;
-  mask-image: radial-gradient(ellipse at center, #000 62%, transparent 100%);
+  /* Fade to zero at every canvas edge, including when the globe fills the view. */
+  mask-image:
+    linear-gradient(to bottom, transparent 0%, rgb(0 0 0 / .15) 3%, rgb(0 0 0 / .5) 7%, rgb(0 0 0 / .85) 12%, #000 18%, #000 82%, rgb(0 0 0 / .85) 88%, rgb(0 0 0 / .5) 93%, rgb(0 0 0 / .15) 97%, transparent 100%),
+    linear-gradient(to right, transparent 0%, rgb(0 0 0 / .5) 4%, #000 10%, #000 90%, rgb(0 0 0 / .5) 96%, transparent 100%);
+  mask-composite: intersect;
+  mask-repeat: no-repeat;
 }
 
 .globe.targeting {
