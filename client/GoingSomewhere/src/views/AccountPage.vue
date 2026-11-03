@@ -1,6 +1,8 @@
 <script setup>
 import BudgetPlanner from './Budget.vue'
-import { computed, ref, watch } from 'vue'
+import { computed, ref, watch, defineAsyncComponent } from 'vue'
+// Loaded only when the Packing tab is opened, so other account pages stay light.
+const PackingChecklist = defineAsyncComponent(() => import('./Checklist.vue'))
 import { useRoute } from 'vue-router'
 import { previewMode } from '../services/preview.js'
 const route = useRoute()
@@ -39,7 +41,14 @@ const tripDetail = computed(() => route.path.startsWith('/trips/preview/'))
         <p class="ui-notice">This planner is connected to the budget service. Budgets and expenses are saved separately for this preview trip.</p>
         <BudgetPlanner :key="selectedTrip.id" :trip-id="`preview-${selectedTrip.id}`" :destination-currency="selectedTrip.id === 'paris' ? 'EUR' : 'JPY'" embedded />
       </section>
-      <section v-else-if="tab === 'Packing'" class="surface"><h2>Packing checklist</h2><p class="muted-copy">Sample items for your next adventure.</p><ul class="packing-list"><li v-for="item in ['Passport and travel documents', 'Phone charger and travel adaptor', 'Comfortable walking shoes']" :key="item">{{ item }}</li></ul></section>
+      <section v-else-if="tab === 'Packing'">
+        <p class="ui-notice">This checklist is connected to the checklist service. Items are saved separately for this preview trip.</p>
+        <PackingChecklist
+          :key="selectedTrip.id"
+          :trip-id="`preview-${selectedTrip.id}`"
+          embedded
+        />
+      </section>
       <section v-else class="surface"><h2>Your travel group</h2><p class="muted-copy">{{ selectedTrip.members }} · Sample members</p><div class="member-row" v-for="(name, index) in ['You', 'Alex']" :key="name"><span class="avatar">{{ name[0] }}</span><span>{{ name }}</span><span class="muted-copy">{{ index === 0 ? selectedTrip.role : 'Member' }}</span></div><p class="muted-copy mt-3 mb-0">Invitations and sharing will be available when group access is connected.</p></section>
     </template>
     <template v-else>
