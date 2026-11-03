@@ -13,7 +13,12 @@ const DEFAULT_HINT = 'Drag your traveller onto a glowing pin'
 const route = useRoute()
 const router = useRouter()
 const search = ref('')
-const results = computed(() => DESTINATIONS.filter(d => `${d.city} ${d.country}`.toLowerCase().includes(search.value.toLowerCase())))
+// Only show matches while the user is typing.
+const results = computed(() => {
+  const q = search.value.trim().toLowerCase()
+  if (!q) return []
+  return DESTINATIONS.filter(d => `${d.city} ${d.country}`.toLowerCase().includes(q))
+})
 const globeEl = ref(null)
 const selected = ref(null)
 const hovered = ref(null)
@@ -55,6 +60,7 @@ function applyPins() {
 }
 watch([selected, hovered], applyPins)
 
+// Shows the destination card on the left and flies the globe to the place.
 function selectDestination(d) {
   selected.value = d
   hint.value = ''
@@ -65,6 +71,13 @@ function selectDestination(d) {
   globe.pointOfView({ lat: d.lat, lng: d.lng, altitude: 1.5 }, 1200)
 }
 
+// Picking a match from the search box.
+function pickFromSearch(d) {
+  search.value = ''
+  selectDestination(d)
+}
+
+// Closing the card brings the intro text back on the left.
 function close() {
   selected.value = null
   hint.value = DEFAULT_HINT
@@ -158,53 +171,50 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="discover">
-    <section class="discover-intro">
-      <div><p class="eyebrow">Find your next adventure</p><h1 class="page-heading">Discover somewhere new.</h1>
-      <p class="muted-copy">Explore the globe, get a recommendation, or let a little curiosity lead the way.</p></div>
-      <div class="discovery-tools">
-        <RouterLink class="secondary-action" to="/quiz">Travel Preference Quiz <span aria-hidden="true">↗</span></RouterLink>
-        <RouterLink class="secondary-action" to="/play">Guess the Country <span aria-hidden="true">↗</span></RouterLink>
-        <RouterLink class="secondary-action" to="/saved">Saved places</RouterLink>
-      </div>
-      <label class="destination-search" for="destination-search">Find a destination
-        <input id="destination-search" v-model="search" type="search" placeholder="Search by city or country" />
-      </label>
-      <div class="destination-list" aria-label="Destinations">
-        <button v-for="d in results" :key="d.id" type="button" :aria-pressed="selected?.id === d.id"
-          @click="selectDestination(d)">{{ d.city }} <span>{{ d.country }}</span></button>
-        <p v-if="!results.length" class="muted-copy">No destinations found. Try another city or country.</p>
-      </div>
-    </section>
-
-    <main class="stage">
-      <Transition name="slide-left">
-        <DestinationCard
-          v-if="selected"
-          :destination="selected"
-          @close="close"
-          @add="addToItinerary"
-          @save="savePlace"
-        />
-      </Transition>
-
-      <div class="globe-wrap" @dragover="onDragOver" @drop="onDrop">
-        <div ref="globeEl" class="globe" :class="{ targeting: dragging }"></div>
-
-        <p v-if="hint" class="hint">{{ hint }}</p>
-
-        <div
-          class="traveller"
-          draggable="true"
-          title="Drag me onto a destination"
-          @dragstart="onDragStart"
-          @dragend="onDragEnd"
-        >
-          <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
-            <circle cx="12" cy="8" r="4" fill="currentColor" />
-            <path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7z" fill="currentColor" />
-          </svg>
+  <div class="discover row g-0">
+    <!-- Left column: intro text, or the destination card once a place is picked -->
+    <aside class="col-12 col-lg-4 left-panel">
+      <Transition name="slide-left" mode="out-in">
+        <section v-if="!selected" key="intro" class="intro-view d-flex flex-column justify-content-center p-4 p-lg-5">
+          <p class="eyebrow">Find your next adventure</p>
+          <h1 class="page-heading">Discover somewhere new.</h1>
+          <p class="muted-copy">Explore the globe, get a recommendation, or let a little curiosity lead the way.</p>
+        </section>
+        <div v-else key="card" class="card-view d-flex justify-content-center align-items-center py-3 py-lg-0">
+          <DestinationCard :destination="selected" @close="close" @add="addToItinerary" @save="savePlace" />
         </div>
+      </Transition>
+    </aside>
+
+    <!-- Right column: globe with the search bar on top -->
+    <main class="col-12 col-lg-8 globe-wrap position-relative overflow-hidden pt-3" @dragover="onDragOver"
+      @drop="onDrop">
+      <div class="search-box position-absolute top-0 start-50 translate-middle-x mt-3">
+        <input id="destination-search" v-model="search" type="search" class="form-control form-control-md search-input"
+          placeholder="Search by city or country" aria-label="Find a destination" />
+        <div v-if="search.trim()" class="list-group search-results" aria-label="Destinations">
+          <button v-for="d in results" :key="d.id" type="button" class="list-group-item list-group-item-action"
+            @click="pickFromSearch(d)">
+            {{ d.city }} <span class="country">{{ d.country }}</span>
+          </button>
+          <div v-if="!results.length" class="list-group-item text-muted">
+            No destinations found. Try another city or country.
+          </div>
+        </div>
+      </div>
+
+      <div ref="globeEl" class="globe" :class="{ targeting: dragging }"></div>
+
+      <p v-if="hint" class="hint position-absolute start-50 translate-middle-x text-center small pe-none">
+        {{ hint }}
+      </p>
+
+      <div class="traveller position-absolute d-flex align-items-center justify-content-center rounded-circle"
+        draggable="true" title="Drag me onto a destination" @dragstart="onDragStart" @dragend="onDragEnd">
+        <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
+          <circle cx="12" cy="8" r="4" fill="currentColor" />
+          <path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7z" fill="currentColor" />
+        </svg>
       </div>
     </main>
   </div>
@@ -212,23 +222,30 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .discover {
-  display: flex;
-  flex-direction: column;
+  flex: 1;
+  min-height: 0;
   background: var(--travel-bg);
   color: #fff;
 }
 
-.stage {
-  min-height: 650px;
-  display: flex;
-  position: relative;
-  min-width: 0;
+.left-panel {
+  min-height: 0;
+  overflow-y: auto;
 }
 
+.intro-view,
+.card-view {
+  height: 100%;
+}
+
+/* Remove the card's own outside margin so it sits neatly in the column */
+.card-view :deep(.dest-card) {
+  margin: 0;
+}
+
+/* Globe area */
 .globe-wrap {
-  flex: 1;
-  position: relative;
-  min-width: 0;
+  min-height: 0;
   background: radial-gradient(ellipse at center, #1c3561 0%, #101a2e 70%);
 }
 
@@ -243,29 +260,69 @@ onBeforeUnmount(() => {
   cursor: crosshair;
 }
 
+/* Search bar on top of the globe */
+.search-box {
+  width: min(90%, 420px);
+  z-index: 6;
+}
+
+.search-input {
+  background: var(--travel-panel);
+  color: #fff;
+  border: 1px solid var(--travel-border);
+  border-radius: 0.6rem;
+}
+
+.search-input::placeholder {
+  color: var(--travel-muted);
+}
+
+.search-input:focus {
+  background: var(--travel-panel);
+  color: #fff;
+  border-color: var(--travel-accent);
+  box-shadow: none;
+}
+
+.search-results {
+  margin-top: 0.4rem;
+  max-height: 260px;
+  overflow-y: auto;
+  border-radius: 0.6rem;
+  border: 1px solid var(--travel-border);
+}
+
+.search-results .list-group-item {
+  background: var(--travel-panel);
+  color: #fff;
+  border-color: var(--travel-border);
+}
+
+.search-results .list-group-item-action:hover,
+.search-results .list-group-item-action:focus {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.country {
+  color: var(--travel-muted);
+  font-size: 0.8rem;
+  margin-left: 0.3rem;
+}
+
 .hint {
-  position: absolute;
-  top: 24px;
-  left: 50%;
-  transform: translateX(-50%);
-  margin: 0;
-  color: #9db4cf;
-  font-size: 0.9rem;
-  pointer-events: none;
+  top: 84px;
   width: 90%;
-  text-align: center;
+  color: #9db4cf;
+  z-index: 5;
 }
 
 .traveller {
-  position: absolute;
   right: 28px;
   bottom: 28px;
   z-index: 5;
   width: 52px;
   height: 52px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
   background: #ffd27f;
   color: #0d1a33;
   cursor: grab;
@@ -287,21 +344,16 @@ onBeforeUnmount(() => {
   opacity: 0;
 }
 
-.discover-intro { width: min(100%, 1440px); margin: auto; padding: 2rem 5% 0; }
-.discovery-tools { display: flex; flex-wrap: wrap; gap: .75rem; margin: 1.5rem 0; }
-.destination-search { display: grid; gap: .5rem; max-width: 32rem; }
-.destination-search input { padding: .8rem 1rem; background: var(--travel-panel); color: #fff; border: 1px solid var(--travel-border); border-radius: .6rem; }
-.destination-list { display: flex; flex-wrap: wrap; gap: .5rem; margin: 1rem 0; }
-.destination-list button { padding: .6rem 1rem; border: 1px solid var(--travel-border); border-radius: 999px; background: var(--travel-panel); color: #fff; }
-.destination-list button span { color: var(--travel-muted); font-size: .8rem; margin-left: .3rem; }
-.destination-list button[aria-pressed="true"] { border-color: var(--travel-accent); }
-@media (max-width: 768px) {
-  .discover {
-    flex-direction: column;
+/* Below Bootstrap's large breakpoint (992px) the columns stack: intro/card on top, globe below */
+@media (max-width: 991.98px) {
+
+  .intro-view,
+  .card-view {
+    height: auto;
   }
-  .stage {
-    flex-direction: column;
+
+  .globe-wrap {
+    min-height: 520px;
   }
-  .globe-wrap { min-height: 420px; }
 }
 </style>

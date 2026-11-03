@@ -45,12 +45,8 @@ watch(
 
     <div class="scroll">
       <div class="hero">
-        <img
-          :src="props.destination.image"
-          :alt="props.destination.city"
-          :class="{ loaded: imageLoaded }"
-          @load="imageLoaded = true"
-        />
+        <img :src="props.destination.image" :alt="props.destination.city" :class="{ loaded: imageLoaded }"
+          @load="imageLoaded = true" />
       </div>
 
       <div class="body">
@@ -66,21 +62,18 @@ watch(
         </p>
 
         <h4 class="label">Picture collage</h4>
-        <div class="carousel">
-          <img
-            v-for="(src, i) in props.destination.gallery"
-            :key="src + i"
-            :src="src"
-            :alt="`${props.destination.city} ${i + 1}`"
-          />
+        <div class="gallery">
+          <img v-for="(image, i) in props.destination.gallery" :key="image" :src="image"
+            :alt="`${props.destination.city} ${i + 1}`" />
         </div>
+
 
         <button class="add" type="button" @click="emit('add', props.destination)">
           Plan a trip here
         </button>
-        <button class="save" type="button" @click="emit('save', props.destination)">Save place</button>
         <p class="account-hint">Log in to save places or create a trip.</p>
-        <p class="account-hint">Weather data by <a href="https://open-meteo.com/" target="_blank" rel="noopener noreferrer">Open-Meteo</a>.</p>
+        <p class="account-hint">Weather data by <a href="https://open-meteo.com/" target="_blank"
+            rel="noopener noreferrer">Open-Meteo</a>.</p>
       </div>
     </div>
   </aside>
@@ -182,7 +175,7 @@ watch(
   line-height: 1.4;
 }
 
-.carousel {
+.gallery {
   display: flex;
   gap: 8px;
   overflow-x: auto;
@@ -190,12 +183,12 @@ watch(
   padding-bottom: 8px;
 }
 
-.carousel img {
-  flex: 0 0 75%;
-  height: 130px;
+.gallery img {
+  flex: 0 0 80%;
+  height: 180px;
   object-fit: cover;
-  scroll-snap-align: start;
-  border-radius: 2px;
+  border-radius: 6px;
+  scroll-snap-align: center;
 }
 
 .add {
@@ -212,7 +205,31 @@ watch(
 .add:hover {
   background: #1c3561;
 }
-.save { width: 100%; padding: .8rem; border: 1px solid #0d1a33; background: transparent; color: #0d1a33; }
-.account-hint { font-family: system-ui, sans-serif; font-size: .8rem; margin: .75rem 0 0; }
-@media (max-width: 768px) { .dest-card { width: calc(100% - 2rem); margin: 1rem; height: auto; max-height: none; } .scroll { overflow: visible; } }
+
+.save {
+  width: 100%;
+  padding: .8rem;
+  border: 1px solid #0d1a33;
+  background: transparent;
+  color: #0d1a33;
+}
+
+.account-hint {
+  font-family: system-ui, sans-serif;
+  font-size: .8rem;
+  margin: .75rem 0 0;
+}
+
+@media (max-width: 768px) {
+  .dest-card {
+    width: calc(100% - 2rem);
+    margin: 1rem;
+    height: auto;
+    max-height: none;
+  }
+
+  .scroll {
+    overflow: visible;
+  }
+}
 </style>
