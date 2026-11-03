@@ -8,11 +8,6 @@ import { user } from '../services/auth.js'
     <RouterLink class="app-brand" to="/" aria-label="GoingSomewhere home"><span aria-hidden="true">✈</span> GoingSomewhere</RouterLink>
     <nav class="app-links" aria-label="Main navigation">
       <RouterLink to="/discover">Discover</RouterLink>
-      <template v-if="$route.path === '/discover'">
-        <RouterLink to="/quiz">Travel Preference Quiz</RouterLink>
-        <RouterLink to="/play">Guess the Country</RouterLink>
-        <!-- <RouterLink to="/saved">Saved places</RouterLink> -->
-      </template>
       <template v-if="user || previewMode">
         <RouterLink to="/trips">My Trips</RouterLink>
         <RouterLink class="primary-action" to="/trips/new">+ New trip</RouterLink>

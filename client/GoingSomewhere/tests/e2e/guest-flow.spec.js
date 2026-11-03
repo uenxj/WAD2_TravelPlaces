@@ -8,6 +8,8 @@ test.beforeEach(async ({ page }) => {
     await route.fulfill({ response })
   })
   await page.route('https://api.open-meteo.com/**', route => route.fulfill({ json: { current: { temperature_2m: 27 }, current_units: { temperature_2m: '°C' } } }))
+  await page.route('https://archive-api.open-meteo.com/**', route => route.abort())
+  await page.route('https://air-quality-api.open-meteo.com/**', route => route.abort())
   await page.route('https://restcountries.com/**', route => route.abort())
 })
 
@@ -54,8 +56,9 @@ test('saved places and account routes require login', async ({ page }) => {
     await expect(page).toHaveURL(/\/login\?/)
     expect(new URL(page.url()).searchParams.get('redirect')).toBe(path)
   }
-  await page.goto('/discover?destination=paris')
-  await page.getByRole('button', { name: 'Save place', exact: true }).click()
+  // The merged Discover design no longer exposes a Save place button.
+  // Verify the saved-place intent at the account route's integration boundary.
+  await page.goto('/saved?destination=paris&from=%2Fdiscover%3Fdestination%3Dparis')
   await expect(page).toHaveURL(/\/login\?/)
   expect(new URL(page.url()).searchParams.get('intent')).toBe('save')
   expect(new URL(page.url()).searchParams.get('redirect')).toContain('/saved?destination=paris')
@@ -80,7 +83,7 @@ test('quiz produces destinations that open the explorer', async ({ page }) => {
   await page.getByLabel('What is your preferred pace?').selectOption('busy')
   await page.getByLabel('Where would you like to explore?').selectOption('asia')
   await page.getByRole('button', { name: 'Find my destinations' }).click()
-  await expect(page.getByRole('heading', { name: 'A few places you might love' })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Recommended destinations', exact: true })).toBeVisible()
   await expect(page.getByRole('article')).toHaveCount(3)
   await page.getByRole('link', { name: 'Explore destination', exact: true }).first().click()
   await expect(page).toHaveURL(/\/discover\?destination=tokyo/)
@@ -114,6 +117,7 @@ test('verified-session integration switches the header and prefills the trip for
   await expect(page.getByRole('link', { name: 'My Trips', exact: true })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Profile', exact: true })).toBeVisible()
   await page.getByRole('link', { name: 'Discover', exact: true }).click()
+  await page.getByRole('searchbox', { name: 'Find a destination' }).fill('Tokyo')
   await page.getByRole('button', { name: 'Tokyo Japan' }).click()
   await page.getByRole('button', { name: 'Plan a trip here' }).click()
   await expect(page.getByRole('heading', { name: 'Create a trip' })).toBeVisible()

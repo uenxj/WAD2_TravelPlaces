@@ -19,6 +19,7 @@ body {
 }
 
 .app-header {
+    flex-shrink: 0;
     width: min(100%, 1440px);
     margin: auto;
     padding: 1.5rem 5%;
@@ -162,22 +163,6 @@ body {
     border-radius: .75rem;
     color: var(--travel-muted);
     line-height: 1.6;
-}
-
-.discover-shell .app-header {
-    padding: 0.6rem 5%;
-}
-
-.discover-shell .app-brand {
-    font-size: 1.1rem;
-}
-
-.discover-shell .app-links {
-    gap: 1.2rem;
-}
-
-.discover-shell .primary-action {
-    padding: 0.45rem 1rem;
 }
 
 @media (max-width: 600px) {

@@ -11,6 +11,7 @@ const router = createRouter({
     { path: '/explore/:country', component: () => import('../src/views/Explore.vue') },
     { path: '/discover', component: () => import('../src/views/Discover.vue') },
     { path: '/quiz', component: () => import('../src/views/Quiz.vue') },
+    { path: '/weather', component: () => import('../src/views/Weather.vue') },
     { path: '/login', component: () => import('../src/views/Login.vue') },
     { path: '/budget', component: () => import('../src/views/Budget.vue'), meta: { requiresAuth: true, liveSessionOnly: true } },
     { path: '/checklist', component: () => import('../src/views/Checklist.vue') },

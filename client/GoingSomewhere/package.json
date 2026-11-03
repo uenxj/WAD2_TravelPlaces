@@ -8,6 +8,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test:e2e": "playwright test",
+    "test:weather": "node --test src/weather/*.test.js",
     "server": "node server/server.js",
     "test:budget": "node --test server/test/budgetMongoStore.test.js",
     "test:checklist": "node --test server/test/checklist.test.js src/checklist/catalog.test.js src/checklist/itemArt.test.js src/checklist/recommend.test.js"
