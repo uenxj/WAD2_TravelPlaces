@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { setPreviewMode } from '../services/preview.js'
-import { safeReturnPath } from '../services/auth.js'
+import { safeReturnPath, login, signup } from '../services/auth.js'
 const route = useRoute()
 const router = useRouter()
 function preview() {
@@ -15,15 +15,26 @@ const mode = ref('login')
 const email = ref('')
 const password = ref('')
 const name = ref('')
-const submitted = ref(false)
+const error = ref('')
+const busy = ref(false)
 const showPassword = ref(false)
 const pendingDestination = computed(() => new URLSearchParams(safeReturnPath(route.query.redirect).split('?')[1] ?? '').get('destination'))
 const backPath = computed(() => safeReturnPath(route.query.from, '/discover'))
 const purpose = computed(() => route.query.intent === 'save' ? 'Log in to save this place to your account.' : route.query.redirect ? 'Log in or create an account to save and plan your trip.' : 'Bring your travel plans together.')
-function submit() {
-  // Replace with your authentication provider. No passwords are stored or sent by this UI.
-  submitted.value = true
-  password.value = ''
+async function submit() {
+  error.value = ''
+  busy.value = true
+  try {
+    if (mode.value === 'signup') await signup(name.value.trim(), email.value, password.value)
+    else await login(email.value, password.value)
+    password.value = ''
+    // Back to where the visitor was heading (for example the trip they were planning).
+    router.replace(safeReturnPath(route.query.redirect, '/profile'))
+  } catch (err) {
+    error.value = err.message // the password stays in the box so a typo is easy to fix
+  } finally {
+    busy.value = false
+  }
 }
 </script>
 
@@ -37,17 +48,15 @@ function submit() {
     </section>
     <section class="surface auth-card" aria-labelledby="auth-title">
       <div class="auth-switch" aria-label="Account options">
-        <button type="button" :aria-pressed="mode === 'login'" @click="mode = 'login'; submitted = false">Log
+        <button type="button" :aria-pressed="mode === 'login'" @click="mode = 'login'; error = ''">Log
           in</button>
-        <button type="button" :aria-pressed="mode === 'signup'" @click="mode = 'signup'; submitted = false">Create
+        <button type="button" :aria-pressed="mode === 'signup'" @click="mode = 'signup'; error = ''">Create
           account</button>
       </div>
       <h2 id="auth-title">{{ mode === 'login' ? 'Welcome back' : 'Start your next adventure' }}</h2>
       <p class="muted-copy">{{ purpose }}</p>
       <p v-if="pendingDestination" class="destination-context">Selected destination: <strong>{{ pendingDestination
           }}</strong></p>
-      <p class="ui-notice">Account access is coming soon. This is a preview of the {{ mode === 'login' ? 'login' :
-        'sign-up' }} form; it does not create an account or sign you in.</p>
       <form class="form-stack" @submit.prevent="submit">
         <label v-if="mode === 'signup'" for="account-name">Name<input id="account-name" v-model="name"
             autocomplete="name" required maxlength="100" /></label>
@@ -64,16 +73,15 @@ function submit() {
               }}</button>
           </span>
         </div>
-        <button class="primary-action" type="submit">{{ mode === 'login' ? 'Log in' : 'Create account' }}</button>
-        <p v-if="submitted" role="status" class="ui-notice">Authentication is not connected yet. Your password has been
-          cleared. You can continue exploring without an account.</p>
+        <button class="primary-action" type="submit" :disabled="busy">{{ busy ? 'Please wait…' : mode === 'login' ? 'Log in' : 'Create account' }}</button>
+        <p v-if="error" role="alert" class="ui-notice">{{ error }}</p>
       </form>
       <div class="preview-entry">
         <button type="button" class="secondary-action" @click="preview">Preview signed-in experience</button>
         <p class="muted-copy small mt-2 mb-0">Explore with sample data. No account or password needed.</p>
       </div>
       <p v-if="route.query.redirect" class="muted-copy small mt-3 mb-0">Your destination will be kept in this link so
-        you can continue after login is connected.</p>
+        you can continue after you log in.</p>
     </section>
   </main>
 </template>

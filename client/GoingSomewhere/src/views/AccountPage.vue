@@ -10,6 +10,7 @@ import { computed, ref, watch, defineAsyncComponent } from 'vue'
 const PackingChecklist = defineAsyncComponent(() => import('./Checklist.vue'))
 import { useRoute } from 'vue-router'
 import { previewMode } from '../services/preview.js'
+import { user } from '../services/auth.js'
 const route = useRoute()
 const tab = ref('Itinerary')
 const dayIndex = ref(0)
@@ -126,6 +127,7 @@ const shortDate = date => new Intl.DateTimeFormat('en', { month: 'short', day: '
           <div class="trip-card-body"><div class="card-labels"><span class="sample-badge">{{ trip.role }}</span><span class="muted-copy small">Sample trip</span></div><h2>{{ trip.name }}</h2><p class="muted-copy">{{ trip.place }}<br>{{ trip.dates }}</p><div class="card-footer-row"><span class="muted-copy">{{ trip.members }}</span><RouterLink class="secondary-action" :to="`/trips/preview/${trip.id}`">View trip →</RouterLink></div></div>
         </article>
       </div>
+      <section v-else-if="user && route.path === '/profile'" class="surface profile-panel"><span class="avatar large">{{ (user.name || '?')[0].toUpperCase() }}</span><h2 class="mt-3">{{ user.name }}</h2><p class="muted-copy">{{ user.email }}</p><RouterLink class="secondary-action" to="/quiz">Take the preference quiz</RouterLink></section>
       <section v-else-if="previewMode && route.path === '/profile'" class="surface profile-panel"><span class="avatar large">T</span><h2 class="mt-3">Preview traveller</h2><p class="muted-copy">traveller@example.com · Sample profile</p><hr><h3 class="h5">Travel preferences</h3><p class="muted-copy">Culture and food · A relaxed pace · Exploring anywhere</p><RouterLink class="secondary-action" to="/quiz">Take the preference quiz</RouterLink></section>
       <section v-else-if="previewMode && route.path === '/saved'" class="surface"><h2>Your inspiration starts here</h2><p class="muted-copy">Places you save will appear here when account storage is connected. Saving is unavailable in preview mode.</p><RouterLink class="secondary-action" to="/discover">Explore destinations</RouterLink></section>
       <section v-else class="surface"><p class="muted-copy">This account area is ready for integration. Trip storage and account features are not connected yet.</p><RouterLink class="secondary-action" to="/discover">Explore destinations</RouterLink></section>

@@ -11,6 +11,7 @@
     "test:weather": "node --test src/weather/*.test.js",
     "server": "node server/server.js",
     "test:budget": "node --test server/test/budgetMongoStore.test.js",
+    "test:auth": "node --test server/test/auth.test.js",
     "test:checklist": "node --test server/test/checklist.test.js src/checklist/catalog.test.js src/checklist/itemArt.test.js src/checklist/recommend.test.js"
   },
   "dependencies": {
