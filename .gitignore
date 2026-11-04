@@ -147,3 +147,10 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+
+# Browser test output
+test-results/
+playwright-report/
+
+# Local budget data
+client/GoingSomewhere/server/data/

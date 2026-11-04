@@ -6,17 +6,25 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:e2e": "playwright test",
+    "test:weather": "node --test src/weather/*.test.js",
+    "server": "node server/server.js",
+    "test:budget": "node --test server/test/budgetMongoStore.test.js",
+    "test:auth": "node --test server/test/auth.test.js",
+    "test:checklist": "node --test server/test/checklist.test.js src/checklist/catalog.test.js src/checklist/itemArt.test.js src/checklist/recommend.test.js"
   },
   "dependencies": {
     "bootstrap": "^5.3.8",
     "express": "^5.3.0",
     "globe.gl": "^2.46.2",
+    "mongodb": "^7.7.0",
     "vue": "^3.5.42",
     "vue-router": "^5.4.0"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.8",
+    "playwright": "^1.64.1",
     "vite": "^8.2.2",
     "vite-plugin-vue-devtools": "^8.2.1"
   },

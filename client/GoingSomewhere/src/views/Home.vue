@@ -3,11 +3,9 @@ import { ref, onMounted, onBeforeUnmount } from 'vue'
 import Globe from 'globe.gl'
 
 const globeEl = ref(null)
-const stepsEl = ref(null)
 
 let globe = null
 let resizeObserver = null
-let revealObserver = null
 
 
 const TEX = 'https://unpkg.com/three-globe/example/img'
@@ -88,224 +86,159 @@ onMounted(() => {
     resizeObserver = new ResizeObserver(sizeGlobe)
     resizeObserver.observe(globeEl.value)
 
-    revealObserver = new IntersectionObserver(entries => {
-        entries.forEach(e => e.isIntersecting && e.target.classList.add('visible'))
-    }, { threshold: 0.2 })
-    stepsEl.value.querySelectorAll('.reveal').forEach(el => revealObserver.observe(el))
+
 })
 
 onBeforeUnmount(() => {
     resizeObserver?.disconnect()
-    revealObserver?.disconnect()
     globe?._destructor?.()                    // frees the WebGL context when leaving the page
     globe = null
 })
 </script>
 
 <template>
-    <header class="hero">
-        <div class="container hero-grid">
-            <div class="hero-copy">
-                <h1 class="display-1 fw-bold text-center">Where to next?</h1>
-                <p class="lead">
-                    Not sure where to travel? Guess a mystery place, find out which country it is,
-                    then explore its places of interest.
-                </p>
-                <RouterLink to="/play" class="btn btn-warning btn-lg px-5 shadow">
-                    Guess the Country
-                </RouterLink>
-                <p class="hint">Drag the globe to spin it. Click anywhere to fly there.</p>
-            </div>
+    <div class="landing-page">
+        <main class="hero-grid">
+            <section class="hero-copy" aria-labelledby="hero-title">
+                <h1 id="hero-title">Managing your travels seamlessly</h1>
+                <div class="app-description">
+                    <h2>Your whole trip, in one place.</h2>
+                    <p>
+                        Discover somewhere new and bring your plans together with GoingSomewhere.
+                        Explore destinations, organise your itinerary, and keep track of your
+                        travel budget and packing list.
+                    </p>
+                    <p>
+                        Plan with your travel group, find routes that work for you, and spot
+                        schedule clashes, budget overruns, and weather or air quality concerns
+                        before they get in the way of your adventure.
+                    </p>
+                </div>
+                <RouterLink to="/discover" class="primary-action explore-action">Explore destinations <span aria-hidden="true">↗</span></RouterLink>
+            </section>
 
-            <div ref="globeEl" class="globe" aria-label="Interactive 3D globe with flight routes"></div>
-        </div>
-    </header>
-
-    <section ref="stepsEl" class="steps py-5">
-        <div class="container">
-            <h2 class="text-center fw-bold mb-5">How it works</h2>
-            <div class="row g-4 justify-content-center">
-                <div class="col-md-4 reveal" style="--delay: 0ms">
-                    <div class="step-card h-100">
-                        <h3 class="h4">Guess</h3>
-                        <p>See a mystery location and type which country you think it is.</p>
-                    </div>
-                </div>
-                <div class="col-md-4 reveal" style="--delay: 120ms">
-                    <div class="step-card h-100">
-                        <h3 class="h4">Discover</h3>
-                        <p>We reveal the answer with its flag, capital and region.</p>
-                    </div>
-                </div>
-                <div class="col-md-4 reveal" style="--delay: 240ms">
-                    <div class="step-card h-100">
-                        <h3 class="h4">Explore</h3>
-                        <p>Browse places of interest and save them to your trip.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
+            <figure class="globe-panel">
+                <div ref="globeEl" class="globe" role="img"
+                    aria-label="Interactive 3D globe with cities and animated flight routes"></div>
+                <figcaption>Drag to explore. Click a city to take a closer look.</figcaption>
+            </figure>
+        </main>
+    </div>
 </template>
 
 <style scoped>
-.hero {
-    position: relative;
-    overflow: hidden;
-    min-height: calc(100vh - 56px);
+.landing-page {
+    --landing-background: #101a2e;
+    --landing-text: #f5f5f3;
+    --landing-muted: #bdc8d8;
+    flex: 1;
     display: flex;
-    align-items: center;
-    color: #fff;
-    background:
-        radial-gradient(1px 1px at 12% 20%, #fff, transparent),
-        radial-gradient(1px 1px at 30% 70%, #fff, transparent),
-        radial-gradient(1.5px 1.5px at 55% 15%, #fff, transparent),
-        radial-gradient(1px 1px at 70% 60%, #fff, transparent),
-        radial-gradient(1.5px 1.5px at 88% 30%, #fff, transparent),
-        radial-gradient(1px 1px at 40% 40%, #fff, transparent),
-        radial-gradient(1px 1px at 92% 82%, #fff, transparent),
-        radial-gradient(ellipse at 70% 50%, #10305a 0%, #07101f 65%);
+    flex-direction: column;
+    background: var(--landing-background);
+    color: var(--landing-text);
 }
+
+.explore-action { margin-top: .5rem; }
 
 .hero-grid {
-    position: relative;
-    z-index: 1;
+    width: min(100%, 1440px);
+    flex: 1;
+    min-height: 0;
+    margin-inline: auto;
+    padding: 1rem 5% 2rem;
     display: grid;
-    grid-template-columns: 1fr 1.2fr;
+    grid-template-columns: 1.1fr 1fr;
     align-items: center;
-    gap: 1rem;
+    gap: 3rem;
 }
 
-.hero-copy .lead {
-    max-width: 30rem;
-    margin-bottom: 1.75rem;
-    color: #d6e4f5;
+.hero-copy,
+.globe-panel {
+    min-width: 0;
 }
 
-.hint {
-    margin-top: 1rem;
-    font-size: 0.9rem;
-    color: #9db4cf;
+.hero-copy h1 {
+    max-width: 12ch;
+    margin: 0 0 1.5rem;
+    font-size: clamp(2.6rem, 4.6vw, 4.5rem);
+    font-weight: 700;
+    line-height: 1.12;
+    letter-spacing: -0.035em;
+}
+
+.app-description {
+    max-width: 34rem;
+}
+
+.app-description h2 {
+    margin-bottom: 1rem;
+    font-size: clamp(1.2rem, 1.7vw, 1.5rem);
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.app-description p {
+    margin: 0 0 1rem;
+    color: var(--landing-muted);
+    font-size: 1.05rem;
+    line-height: 1.65;
+}
+
+.globe-panel {
+    margin: 0;
+    text-align: center;
 }
 
 .globe {
     width: 100%;
-    height: min(75vh, 640px);
-    min-height: 340px;
+    height: min(40vw, 580px, calc(100svh - 200px));
+    -webkit-mask-image: radial-gradient(ellipse at center, #000 62%, transparent 100%);
+    mask-image: radial-gradient(ellipse at center, #000 62%, transparent 100%);
     cursor: grab;
+    touch-action: pan-y;
 }
 
 .globe:active {
     cursor: grabbing;
 }
 
-.plane {
-    position: absolute;
-    top: 16%;
-    left: -80px;
-    z-index: 2;
-    color: #ffb703;
-    transform: rotate(80deg);
-    animation: fly 16s linear infinite;
-    pointer-events: none;
+.globe-panel figcaption {
+    margin-top: 0.5rem;
+    color: var(--landing-muted);
+    font-size: 0.85rem;
 }
 
-.plane::after {
-    content: '';
-    position: absolute;
-    top: -150px;
-    left: 50%;
-    width: 0;
-    height: 140px;
-    border-left: 3px dashed rgba(255, 255, 255, 0.45);
-}
-
-@keyframes fly {
-    0% {
-        left: -80px;
-        top: 20%;
-        opacity: 0;
+@media (min-width: 801px) and (max-height: 760px) {
+    .hero-copy h1 {
+        margin-bottom: 1.5rem;
+        font-size: clamp(2.6rem, 4vw, 3.5rem);
     }
 
-    8% {
-        opacity: 1;
-    }
-
-    50% {
-        top: 9%;
-    }
-
-    92% {
-        opacity: 1;
-    }
-
-    100% {
-        left: 105%;
-        top: 18%;
-        opacity: 0;
+    .app-description p {
+        line-height: 1.6;
     }
 }
 
-.steps {
-    background: #f4f8fc;
-}
-
-.reveal {
-    opacity: 0;
-    transform: translateY(28px);
-    transition: opacity 0.6s ease var(--delay), transform 0.6s ease var(--delay);
-}
-
-.reveal.visible {
-    opacity: 1;
-    transform: none;
-}
-
-.step-card {
-    padding: 2rem;
-    background: #fff;
-    border-radius: 1rem;
-    border: 1px solid #dbe6f2;
-    transform-style: preserve-3d;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.step-card:hover {
-    transform: perspective(700px) rotateX(6deg) rotateY(-8deg) translateY(-6px);
-    box-shadow: 0 18px 30px rgba(7, 16, 31, 0.18);
-}
-
-/* ---------- Small screens ---------- */
-@media (max-width: 900px) {
+@media (max-width: 800px) {
     .hero-grid {
+        min-height: auto;
         grid-template-columns: 1fr;
-        text-align: center;
+        gap: 1rem;
+        padding: 2.5rem 6% 2rem;
     }
 
-    .hero-copy .lead {
-        margin-left: auto;
-        margin-right: auto;
+    .hero-copy h1 {
+        max-width: 15ch;
+        margin-bottom: 1.75rem;
     }
 
-    .hero {
-        padding: 2rem 0;
+    .app-description {
+        max-width: 40rem;
+    }
+
+    .globe {
+        height: clamp(300px, 75vw, 480px);
     }
 }
 
-@media (prefers-reduced-motion: reduce) {
-    .plane {
-        animation: none;
-        display: none;
-    }
-
-    .reveal {
-        opacity: 1;
-        transform: none;
-        transition: none;
-    }
-
-    .step-card:hover {
-        transform: none;
-    }
-}
 </style>

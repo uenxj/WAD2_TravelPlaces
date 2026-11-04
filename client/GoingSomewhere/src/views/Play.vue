@@ -128,6 +128,7 @@ onMounted(() => {
 <template>
     <div class="play-page py-5">
         <div class="container" style="max-width: 720px">
+            <RouterLink to="/discover" class="d-inline-block mb-4">← Back to Discover</RouterLink>
             <div v-if="finished" class="card shadow border-0 text-center p-5">
                 <h1 class="display-5 fw-bold">Game over</h1>
                 <p class="lead mb-1">You got</p>
