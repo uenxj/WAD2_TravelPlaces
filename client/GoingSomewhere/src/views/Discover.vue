@@ -27,6 +27,8 @@ const hint = ref(DEFAULT_HINT)
 
 let globe = null
 let resizeObserver = null
+const pagesEl = ref(null) // the scrolling wrapper around the two pages
+const isCompact = () => window.matchMedia('(max-width: 767.98px)').matches // true on phones and tablets
 
 // Find the closest destination to a lat/lng, or null if none is within SNAP_DEGREES.
 function nearestDestination(lat, lng) {
@@ -60,7 +62,7 @@ function applyPins() {
 }
 watch([selected, hovered], applyPins)
 
-// Shows the destination card on the left and flies the globe to the place.
+// Shows the destination card and flies the globe to the place.
 function selectDestination(d) {
   selected.value = d
   hint.value = ''
@@ -69,6 +71,8 @@ function selectDestination(d) {
   }
   globe.controls().autoRotate = false
   globe.pointOfView({ lat: d.lat, lng: d.lng, altitude: 1.5 }, 1200)
+  // On phones/tablets the card replaces the globe, so jump back to the top of the page
+  if (isCompact() && pagesEl.value) pagesEl.value.scrollTop = 0
 }
 
 // Picking a match from the search box.
@@ -77,15 +81,21 @@ function pickFromSearch(d) {
   selectDestination(d)
 }
 
-// Closing the card brings the intro text back on the left.
+
+// Closing the card brings back the same globe view as when the page first loads.
 function close() {
   selected.value = null
   hint.value = DEFAULT_HINT
   const { destination, ...query } = route.query
   router.replace({ path: '/discover', query })
   globe.controls().autoRotate = true
-  const pov = globe.pointOfView()
-  globe.pointOfView({ ...pov, altitude: 2.6 }, 1000)
+  globe.pointOfView({ lat: 20, lng: 20, altitude: 2.6 }, 1000)
+  if (isCompact()) {
+    // A short wait lets the globe appear on the page before we scroll down to it
+    setTimeout(() => {
+      pagesEl.value?.scrollTo({ top: pagesEl.value.scrollHeight, behavior: 'smooth' })
+    }, 50)
+  }
 }
 
 function addToItinerary(d) {
@@ -156,7 +166,12 @@ onMounted(() => {
 
   globe.pointOfView({ lat: 20, lng: 20, altitude: 2.6 })
 
-  const size = () => globe.width(globeEl.value.clientWidth).height(globeEl.value.clientHeight)
+  // Skip while the globe is hidden (phone/tablet card view) so it keeps its last size
+  const size = () => {
+    const w = globeEl.value.clientWidth
+    const h = globeEl.value.clientHeight
+    if (w && h) globe.width(w).height(h)
+  }
   size()
   resizeObserver = new ResizeObserver(size)
   resizeObserver.observe(globeEl.value)
@@ -171,41 +186,42 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="discover row g-0">
-    <!-- Left column: intro text, or the destination card once a place is picked -->
-    <aside class="col-12 col-lg-4 left-panel">
-      <Transition name="slide-left" mode="out-in">
-        <section v-if="!selected" key="intro" class="intro-view d-flex flex-column justify-content-center p-4 p-lg-5">
-          <p class="eyebrow">Find your next adventure</p>
-          <h1 class="page-heading">Discover somewhere new.</h1>
-          <p class="muted-copy">Explore the globe, get a recommendation, or let a little curiosity lead the way.</p>
-          <div class="action-row mt-3">
-            <RouterLink class="secondary-action" to="/quiz">Travel Preference Quiz</RouterLink>
-            <RouterLink class="secondary-action" to="/play">Guess the Country</RouterLink>
+  <div class="discover" :class="{ 'is-selected': selected }">
+    <div ref="pagesEl" class="discover-pages">
+      <!-- Page 1: intro text, or the destination card once a place is picked -->
+      <aside class="left-panel">
+        <Transition name="slide-left" mode="out-in">
+          <section v-if="!selected" key="intro" class="intro-view d-flex flex-column">
+            <p class="eyebrow">Find your next adventure</p>
+            <h1 class="page-heading">Discover somewhere new.</h1>
+            <p class="muted-copy">Explore the globe, get a recommendation, or let a little curiosity lead the way.</p>
+            <div class="action-row mt-3">
+              <RouterLink class="secondary-action" to="/quiz">Travel Preference Quiz</RouterLink>
+              <RouterLink class="secondary-action" to="/play">Guess the Country</RouterLink>
+            </div>
+          </section>
+          <div v-else key="card" class="card-view d-flex justify-content-center align-items-center py-3 py-lg-0">
+            <DestinationCard :destination="selected" @close="close" @add="addToItinerary" @save="savePlace" />
           </div>
-        </section>
-        <div v-else key="card" class="card-view d-flex justify-content-center align-items-center py-3 py-lg-0">
-          <DestinationCard :destination="selected" @close="close" @add="addToItinerary" @save="savePlace" />
+        </Transition>
+      </aside>
+      <!-- Page 2: globe with the traveller to drag (hidden on phone/tablet while a card is open) -->
+      <main class="globe-wrap position-relative overflow-hidden" @dragover="onDragOver" @drop="onDrop">
+        <div ref="globeEl" class="globe" :class="{ targeting: dragging }"></div>
+
+        <p v-if="hint" class="hint position-absolute start-50 translate-middle-x text-center small pe-none">
+          {{ hint }}
+        </p>
+
+        <div class="traveller position-absolute d-flex align-items-center justify-content-center rounded-circle"
+          draggable="true" title="Drag me onto a destination" @dragstart="onDragStart" @dragend="onDragEnd">
+          <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
+            <circle cx="12" cy="8" r="4" fill="currentColor" />
+            <path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7z" fill="currentColor" />
+          </svg>
         </div>
-      </Transition>
-    </aside>
-
-    <!-- Right column: globe with the search bar on top -->
-    <main class="col-12 col-lg-8 globe-wrap position-relative overflow-hidden" @dragover="onDragOver" @drop="onDrop">
-      <div ref="globeEl" class="globe" :class="{ targeting: dragging }"></div>
-
-      <p v-if="hint" class="hint position-absolute start-50 translate-middle-x text-center small pe-none">
-        {{ hint }}
-      </p>
-
-      <div class="traveller position-absolute d-flex align-items-center justify-content-center rounded-circle"
-        draggable="true" title="Drag me onto a destination" @dragstart="onDragStart" @dragend="onDragEnd">
-        <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
-          <circle cx="12" cy="8" r="4" fill="currentColor" />
-          <path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7z" fill="currentColor" />
-        </svg>
-      </div>
-    </main>
+      </main>
+    </div>
   </div>
 </template>
 
@@ -213,30 +229,43 @@ onBeforeUnmount(() => {
 .discover {
   flex: 1;
   min-height: 0;
-  width: auto;
+  display: flex;
+  flex-direction: column;
   background: var(--travel-bg);
   color: #fff;
 }
 
-.left-panel {
+/* The two pages: intro/card first, globe second. Stacked and scrolled on phones and tablets. */
+.discover-pages {
+  flex: 1;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
   overflow-y: auto;
+  scroll-snap-type: y mandatory;
+}
+
+.left-panel,
+.globe-wrap {
+  flex: 0 0 100%;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  position: relative;
+  scroll-snap-align: start;
+}
+
+.intro-view {
   height: 100%;
 }
 
-.intro-view,
+/* Grows with the card on small screens, so a tall card can still be scrolled */
 .card-view {
-  height: 100%;
-}
-
-/* Remove the card's own outside margin so it sits neatly in the column */
-.card-view :deep(.dest-card) {
-  margin: 0;
+  min-height: 100%;
 }
 
 /* Globe area */
 .globe-wrap {
-  min-height: 0;
   background: radial-gradient(ellipse at center, #1c3561 0%, #101a2e 70%);
 }
 
@@ -256,62 +285,11 @@ onBeforeUnmount(() => {
   cursor: crosshair;
 }
 
-/* Search bar on top of the globe */
-.search-box {
-  width: min(90%, 420px);
-  z-index: 6;
-}
-
-.search-input {
-  background: var(--travel-panel);
-  color: #fff;
-  border: 1px solid var(--travel-border);
-  border-radius: 0.6rem;
-}
-
-.search-input::placeholder {
-  color: var(--travel-muted);
-}
-
-.search-input:focus {
-  background: var(--travel-panel);
-  color: #fff;
-  border-color: var(--travel-accent);
-  box-shadow: none;
-}
-
-.search-results {
-  margin-top: 0.4rem;
-  max-height: 260px;
-  overflow-y: auto;
-  border-radius: 0.6rem;
-  border: 1px solid var(--travel-border);
-}
-
-.search-results .list-group-item {
-  background: var(--travel-panel);
-  color: #fff;
-  border-color: var(--travel-border);
-}
-
-.search-results .list-group-item-action:hover,
-.search-results .list-group-item-action:focus {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
-}
-
-.country {
-  color: var(--travel-muted);
-  font-size: 0.8rem;
-  margin-left: 0.3rem;
-}
-
 .hint {
   top: 84px;
   width: 90%;
   color: #9db4cf;
   z-index: 5;
-  /* margin-bottom: 10px; */
 }
 
 .traveller {
@@ -341,16 +319,61 @@ onBeforeUnmount(() => {
   opacity: 0;
 }
 
-/* Below Bootstrap's large breakpoint (992px) the columns stack: intro/card on top, globe below */
-@media (max-width: 991.98px) {
+/* Phones and tablets (767px and below) */
+@media (max-width: 767.98px) {
+  .discover-pages {
+    scroll-snap-type: y proximity;
+  }
 
-  .intro-view,
-  .card-view {
+  /* The intro is only as tall as its text, so the globe starts just below it */
+  .left-panel {
+    flex: 0 0 auto;
     height: auto;
   }
 
+  .intro-view {
+    height: auto;
+    padding: 2rem 1.5rem 1.25rem;
+  }
+
+  /* Once a destination is picked, the card replaces the globe */
+  .discover.is-selected .discover-pages {
+    scroll-snap-type: none;
+  }
+
+  .discover.is-selected .globe-wrap {
+    display: none;
+  }
+}
+
+/* Laptop (768px and up): intro/card on the left, globe on the right, side by side */
+@media (min-width: 768px) {
+  .discover-pages {
+    flex-direction: row;
+    overflow: hidden;
+    scroll-snap-type: none;
+  }
+
+  .left-panel {
+    flex: 0 0 40%;
+    width: 40%;
+    overflow-y: auto;
+  }
+
+  /* Centres the intro text and gives it room on laptops */
+  .intro-view {
+    justify-content: center;
+    padding: 3rem;
+  }
+
   .globe-wrap {
-    min-height: 520px;
+    flex: 1 1 auto;
+    width: auto;
+  }
+
+  /* Remove the card's outside margin so it sits neatly in the column (laptop only) */
+  .card-view :deep(.dest-card) {
+    margin: 0;
   }
 }
 </style>
