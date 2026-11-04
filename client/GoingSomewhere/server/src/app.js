@@ -136,7 +136,7 @@ function createApp({ store, rates }) {
   const app = express();
   app.use(express.json({ limit: '100kb' }));
   app.use('/api', createRouter({ store, rates }));
-  app.use(express.static(path.join(__dirname, '..', 'public')));
+  app.use(express.static(path.join(__dirname, '..', '..', 'dist')));
   return app;
 }
 

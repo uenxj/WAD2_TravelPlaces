@@ -43,6 +43,12 @@ const authStore = process.env.MONGODB_URI
   : createMemoryAuthStore();
 mountAuth(app, { store: authStore, secureCookie: process.env.NODE_ENV === 'production' });
 
+// Any page that isn't an API call returns the Vue app, so refreshing /discover works
+app.use((req, res, next) => {
+  if (req.method !== 'GET' || req.path.startsWith('/api')) return next();
+  res.sendFile(path.join(__dirname, '..', 'dist', 'index.html'));
+});
+
 app.listen(PORT, () => {
   console.log(`Budget Planner running at http://localhost:${PORT}`);
 });
