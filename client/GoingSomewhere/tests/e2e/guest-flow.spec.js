@@ -64,17 +64,33 @@ test('saved places and account routes require login', async ({ page }) => {
   expect(new URL(page.url()).searchParams.get('redirect')).toContain('/saved?destination=paris')
 })
 
-test('login preview never creates a session or keeps the password', async ({ page }) => {
+test('a failed login shows the server error and creates no session', async ({ page }) => {
+  await page.route('**/api/auth/login', route => route.fulfill({ status: 401, json: { error: 'Incorrect email or password' } }))
   await page.goto('/login')
   await page.getByLabel('Email', { exact: true }).fill('traveller@example.com')
-  await page.getByLabel('Password', { exact: true }).fill('preview-password')
+  await page.getByLabel('Password', { exact: true }).fill('wrong-password')
   await page.getByRole('button', { name: 'Show password' }).click()
   await expect(page.getByLabel('Password', { exact: true })).toHaveAttribute('type', 'text')
   await page.getByRole('button', { name: 'Log in', exact: true }).last().click()
-  await expect(page.getByRole('status')).toContainText('Authentication is not connected yet')
-  await expect(page.getByLabel('Password', { exact: true })).toHaveValue('')
+  await expect(page.getByRole('alert')).toContainText('Incorrect email or password')
+  await expect(page).toHaveURL(/\/login/)
   await expect(page.getByRole('link', { name: 'My Trips', exact: true })).toHaveCount(0)
   await noHorizontalOverflow(page)
+})
+
+test('a successful login signs in, shows the profile, and log out signs out again', async ({ page }) => {
+  await page.route('**/api/auth/login', route => route.fulfill({ status: 200, json: { user: { id: 'u1', name: 'Seth', email: 'seth@example.com' } } }))
+  await page.route('**/api/auth/logout', route => route.fulfill({ status: 204 }))
+  await page.goto('/login')
+  await page.getByLabel('Email', { exact: true }).fill('seth@example.com')
+  await page.getByLabel('Password', { exact: true }).fill('correct horse battery')
+  await page.getByRole('button', { name: 'Log in', exact: true }).last().click()
+  await expect(page).toHaveURL(/\/profile$/)
+  await expect(page.getByRole('heading', { name: 'Seth' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'My Trips', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Log out' }).click()
+  await expect(page).toHaveURL(/\/discover$/)
+  await expect(page.getByRole('link', { name: 'My Trips', exact: true })).toHaveCount(0)
 })
 
 test('quiz produces destinations that open the explorer', async ({ page }) => {
