@@ -4,8 +4,13 @@
 // Config (environment variables, in server/.env):
 //   MONGODB_URI  e.g. mongodb://127.0.0.1:27017 or a MongoDB Atlas connection string
 //   MONGODB_DB   database name (default: goingsomewhere)
+//   MONGODB_DNS_SERVERS  optional, e.g. 8.8.8.8,1.1.1.1. Only for networks whose DNS cannot resolve
+//                        mongodb+srv:// addresses (the error is "querySrv ECONNREFUSED")
 
 const { MongoClient } = require('mongodb');
+const dns = require('dns');
+
+if (process.env.MONGODB_DNS_SERVERS) dns.setServers(process.env.MONGODB_DNS_SERVERS.split(','));
 
 function unavailable(message, cause) {
   const err = new Error(message);

@@ -16,6 +16,8 @@ const { mountChecklist } = require('./src/checklist/checklistRoutes');
 const { createMongoStore } = require('./src/budgetMongoStore');
 const { createAuthStore, createMemoryAuthStore } = require('./src/auth/authStore');
 const { mountAuth } = require('./src/auth/authRoutes');
+const { createMongoStore: createItineraryMongoStore, createLocalStore: createItineraryLocalStore } = require('./src/itinerary/itineraryStore');
+const { mountItinerary } = require('./src/itinerary/itineraryRoutes');
 
 const PORT = process.env.PORT || 3000;
 const mongo = createMongo(); // one shared MongoDB connection (MONGODB_URI)
@@ -41,7 +43,15 @@ if (!process.env.MONGODB_URI) console.warn('Accounts: MONGODB_URI is not set, so
 const authStore = process.env.MONGODB_URI
   ? createAuthStore({ database: mongo.database })
   : createMemoryAuthStore();
-mountAuth(app, { store: authStore, secureCookie: process.env.NODE_ENV === 'production' });
+const auth = mountAuth(app, { store: authStore, secureCookie: process.env.NODE_ENV === 'production' });
+
+// Trips and their itinerary (activities, conflict warnings, suggested places). Same MongoDB when MONGODB_URI is
+// set, otherwise server/data/itinerary.json. Every route needs a signed-in user, so this goes after mountAuth.
+const itineraryStore = process.env.MONGODB_URI
+  ? createItineraryMongoStore({ database: mongo.database })
+  : createItineraryLocalStore(path.join(__dirname, 'data', 'itinerary.json'));
+mountItinerary(app, { store: itineraryStore, requireAuth: auth.requireAuth, users: authStore });
+if (!process.env.OPENTRIPMAP_KEY) console.warn('Itinerary: OPENTRIPMAP_KEY is not set, so the "Suggested places" panel is switched off.');
 
 // Any page that isn't an API call returns the Vue app, so refreshing /discover works
 app.use((req, res, next) => {
