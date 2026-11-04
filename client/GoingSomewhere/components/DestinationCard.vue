@@ -41,7 +41,7 @@ watch(
 
     <div class="scroll">
       <div class="hero">
-        <img :src="props.destination.image" :alt="props.destination.city" :class="{ loaded: imageLoaded }"
+        <img :src="props.destination.image" :alt="props.destination.city" :class="{ loaded: imageLoaded }" class="flex-image"
           @load="imageLoaded = true" />
       </div>
 
@@ -56,7 +56,8 @@ watch(
         <p class="text">
           {{ weather ?? (weatherFailed ? 'Unavailable' : 'Loading…') }}
         </p>
-        <RouterLink class="weather-link" :to="{ path: '/weather', query: { destination: props.destination.id } }">Check weather &amp; air quality for your dates →</RouterLink>
+        <RouterLink class="weather-link" :to="{ path: '/weather', query: { destination: props.destination.id } }">Check
+          weather &amp; air quality for your dates →</RouterLink>
 
         <h4 class="label">Picture collage</h4>
         <div class="gallery">
@@ -77,18 +78,30 @@ watch(
 </template>
 
 <style scoped>
-.weather-link { display: inline-block; color: #163c55; font-family: system-ui, sans-serif; font-size: .85rem; line-height: 1.5; margin-bottom: 1rem; }
+.weather-link {
+  display: inline-block;
+  color: #163c55;
+  font-family: system-ui, sans-serif;
+  font-size: .85rem;
+  line-height: 1.5;
+  margin-bottom: 1rem;
+}
+
 .dest-card {
+  display: flex;
+  flex-direction: column;
   position: relative;
-  width: 360px;
+  width: 100%;
   flex-shrink: 0;
-  height: 600px;
-  margin: 24px 0 24px 24px;
+  height: 100%;
+  margin: 24px;
   background: linear-gradient(180deg, #efe6d6 0%, #dcdcdc 45%, #d9d9d9 100%);
   color: #1b1b1b;
   overflow: hidden;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
   font-family: 'IM Fell English', Georgia, serif;
+  /* border: solid red 1px; */
+  
 }
 
 .scroll {
@@ -111,14 +124,15 @@ watch(
 /* Picture fades into the card colour at the bottom */
 .hero {
   position: relative;
-  height: 260px;
+  min-width: fit-content;
+  height: auto;
   background: #efe6d6;
-  overflow: hidden;
+  overflow:hidden;
 }
 
 .hero img {
   width: 100%;
-  height: 100%;
+  height: auto;
   object-fit: cover;
   opacity: 0;
   transition: opacity 0.8s ease;
@@ -128,13 +142,14 @@ watch(
   opacity: 1;
 }
 
+/* the blur transition to body */
 .hero::after {
   content: '';
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  height: 110px;
+  height: 50px;
   background: linear-gradient(transparent, #d9d9d9);
   pointer-events: none;
 }
@@ -148,9 +163,11 @@ watch(
 .place {
   font-family: 'Pinyon Script', cursive;
   font-weight: 400;
-  font-size: 2.4rem;
+  font-size: 55px;
+  z-index: 2;
   line-height: 1.1;
   margin: 0;
+  /* border: 1px solid green; */
 }
 
 .country {
@@ -164,13 +181,16 @@ watch(
   font-weight: 400;
   font-size: 0.95rem;
   letter-spacing: 0.05em;
-  margin: 1rem 0 0.25rem;
+  margin-top: 20px;
+  margin-bottom: 0px;
+  /* border: solid 1px purple; */
 }
 
 .text {
-  margin: 0 0 0.5rem;
+  margin-top: 0px;
   font-size: 1rem;
   line-height: 1.4;
+  /* border: 1px solid yellow; */
 }
 
 .gallery {
@@ -179,14 +199,19 @@ watch(
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   padding-bottom: 8px;
+  height: 300px;
 }
 
 .gallery img {
   flex: 0 0 80%;
-  height: 180px;
+  width: 100%;
+  height: auto;
   object-fit: cover;
   border-radius: 6px;
+  scroll-behavior: smooth;
   scroll-snap-align: center;
+  /* scroll-snap-align: center; */
+  /* scroll-behavior: smooth; */
 }
 
 .add {

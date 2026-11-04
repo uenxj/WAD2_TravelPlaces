@@ -191,22 +191,7 @@ onBeforeUnmount(() => {
     </aside>
 
     <!-- Right column: globe with the search bar on top -->
-    <main class="col-12 col-lg-8 globe-wrap position-relative overflow-hidden pt-3" @dragover="onDragOver"
-      @drop="onDrop">
-      <div class="search-box position-absolute top-0 start-50 translate-middle-x mt-3">
-        <input id="destination-search" v-model="search" type="search" class="form-control form-control-md search-input"
-          placeholder="Search by city or country" aria-label="Find a destination" />
-        <div v-if="search.trim()" class="list-group search-results" aria-label="Destinations">
-          <button v-for="d in results" :key="d.id" type="button" class="list-group-item list-group-item-action"
-            @click="pickFromSearch(d)">
-            {{ d.city }} <span class="country">{{ d.country }}</span>
-          </button>
-          <div v-if="!results.length" class="list-group-item text-muted">
-            No destinations found. Try another city or country.
-          </div>
-        </div>
-      </div>
-
+    <main class="col-12 col-lg-8 globe-wrap position-relative overflow-hidden" @dragover="onDragOver" @drop="onDrop">
       <div ref="globeEl" class="globe" :class="{ targeting: dragging }"></div>
 
       <p v-if="hint" class="hint position-absolute start-50 translate-middle-x text-center small pe-none">
@@ -228,6 +213,7 @@ onBeforeUnmount(() => {
 .discover {
   flex: 1;
   min-height: 0;
+  width: auto;
   background: var(--travel-bg);
   color: #fff;
 }
@@ -235,6 +221,7 @@ onBeforeUnmount(() => {
 .left-panel {
   min-height: 0;
   overflow-y: auto;
+  height: 100%;
 }
 
 .intro-view,
@@ -324,6 +311,7 @@ onBeforeUnmount(() => {
   width: 90%;
   color: #9db4cf;
   z-index: 5;
+  /* margin-bottom: 10px; */
 }
 
 .traveller {
