@@ -22,9 +22,34 @@ function exitPreview() {
 </template>
 
 <style scoped>
-.preview-banner { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: .5rem 1.5rem; padding: .65rem 5%; background: #274840; color: #fff; font-size: .85rem; }
-.preview-banner button { border: 1px solid #b9ddd2; border-radius: 999px; background: transparent; color: #fff; padding: .3rem .8rem; }
-.home-shell { display: flex; flex-direction: column; }
-.discover-shell { height: 100svh; display: flex; flex-direction: column; }
-@media (max-width: 768px) { .discover-shell { height: auto; } }
+.preview-banner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: .5rem 1.5rem;
+  padding: .65rem 5%;
+  background: #274840;
+  color: #fff;
+  font-size: .85rem;
+}
+
+.preview-banner button {
+  border: 1px solid #b9ddd2;
+  border-radius: 999px;
+  background: transparent;
+  color: #fff;
+  padding: .3rem .8rem;
+}
+
+.home-shell {
+  display: flex;
+  flex-direction: column;
+}
+
+.discover-shell {
+  height: 100svh;
+  display: flex;
+  flex-direction: column;
+}
 </style>

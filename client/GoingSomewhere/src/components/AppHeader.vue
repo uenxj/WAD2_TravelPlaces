@@ -31,19 +31,22 @@ async function signOut() {
   <header class="app-header">
     <RouterLink class="app-brand" to="/" aria-label="GoingSomewhere home"><span aria-hidden="true">✈</span>
       GoingSomewhere</RouterLink>
+
+    <!-- Search is its own grid cell: middle of the bar on tablet, second row on phone -->
+    <div v-if="$route.path === '/discover'" class="app-search" role="search">
+      <input id="destination-search" v-model="search" type="search" class="app-search-input"
+        placeholder="Search a city or country" aria-label="Find a destination" @keydown.esc="search = ''" />
+      <ul v-if="search.trim()" class="app-search-results" aria-label="Destinations">
+        <li v-for="d in results" :key="d.id">
+          <button type="button" @click="pickDestination(d)">
+            {{ d.city }} <span class="app-search-country">{{ d.country }}</span>
+          </button>
+        </li>
+        <li v-if="!results.length" class="app-search-empty">No destinations found.</li>
+      </ul>
+    </div>
+
     <nav class="app-links" aria-label="Main navigation">
-      <div v-if="$route.path === '/discover'" class="app-search" role="search">
-        <input id="destination-search" v-model="search" type="search" class="app-search-input"
-          placeholder="Search a city or country" aria-label="Find a destination" @keydown.esc="search = ''" />
-        <ul v-if="search.trim()" class="app-search-results" aria-label="Destinations">
-          <li v-for="d in results" :key="d.id">
-            <button type="button" @click="pickDestination(d)">
-              {{ d.city }} <span class="app-search-country">{{ d.country }}</span>
-            </button>
-          </li>
-          <li v-if="!results.length" class="app-search-empty">No destinations found.</li>
-        </ul>
-      </div>
       <RouterLink to="/discover">Discover</RouterLink>
       <template v-if="user || previewMode">
         <RouterLink to="/trips">My Trips</RouterLink>
@@ -71,15 +74,34 @@ async function signOut() {
   text-decoration: underline;
 }
 
-/* Frosted-glass search pill */
+/* Laptop (768px and up): brand | search | links in one row, search sits left of the links */
+.app-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  padding: 10px 20px;
+}
+
+.app-brand {
+  grid-column: 1;
+}
+
+.app-links {
+  grid-column: 3;
+}
+
 .app-search {
   position: relative;
-  width: auto;
+  grid-column: 2;
+  justify-self: end;
+  width: 100%;
+  max-width: 350px;
+  margin-right: 50px;
 }
 
 .app-search-input {
-  /* width: 100%; */
-  width: 350px;
+  width: 100%;
   padding: .45rem 1rem;
   border: 1px solid rgba(255, 255, 255, .14);
   border-radius: 999px;
@@ -91,7 +113,6 @@ async function signOut() {
   font-size: .9rem;
   outline: none;
   transition: border-color .2s ease, background .2s ease, box-shadow .2s ease;
-  margin-right: 50px;
 }
 
 .app-search-input::placeholder {
@@ -154,11 +175,58 @@ async function signOut() {
   font-size: .85rem;
 }
 
-@media (max-width: 768px) {
+/* Tablet (576px to 767px, Bootstrap sm to md): brand | search (centred) | links */
+@media (min-width: 576px) and (max-width: 767.98px) {
+  .app-header {
+    gap: .75rem;
+    padding: 12px;
+  }
+
+  .app-brand {
+    font-size: .85rem;
+  }
+
+  .app-links {
+    gap: .75rem;
+    font-size: .9rem;
+  }
+
   .app-search {
-    width: 100%;
-    flex-basis: 100%;
-    order: -1;
+    justify-self: center;
+    max-width: 360px;
+    margin-right: 0;
   }
 }
+
+/* Phone (below 576px, Bootstrap xs): row 1 = brand + links, row 2 = search */
+@media (max-width: 575.98px) {
+  .app-header {
+    grid-template-columns: auto minmax(0, 1fr);
+    row-gap: .6rem;
+    padding: .75rem 16px;
+  }
+
+  .app-brand {
+    grid-column: 1;
+    grid-row: 1;
+    font-size: .95rem;
+  }
+
+  .app-links {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+    gap: .9rem;
+    font-size: .9rem;
+  }
+
+  .app-search {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-self: stretch;
+    max-width: none;
+    margin-right: 0;
+  }
+}
+
 </style>

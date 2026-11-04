@@ -243,7 +243,7 @@ watch(
   margin: .75rem 0 0;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 767.98px) {
   .dest-card {
     width: calc(100% - 2rem);
     margin: 1rem;
