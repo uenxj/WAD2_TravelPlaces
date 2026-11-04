@@ -20,19 +20,24 @@ body {
 
 .app-header {
     flex-shrink: 0;
-    width: min(100%, 1440px);
-    margin: auto;
-    padding: 1.5rem 5%;
+    /* width: min(100%, 1440px); */
+    min-width: 100%;
+    /* margin: auto; */
+    padding: 10px 20px;
     display: flex;
+    position: sticky;
+    top: 0px;
+    z-index: 100;
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
+    /* border: 1px solid red; */
 }
 
 .app-brand {
     color: var(--travel-text);
     text-decoration: none;
-    font-size: clamp(0.9rem, 1.6vw, 1.3rem);
+    font-size: clamp(0.9rem, 1.2vw, 1.3rem); /* min, preferred, max*/
     font-weight: 700;
     white-space: nowrap;
 }
@@ -44,8 +49,9 @@ body {
 .app-links {
     display: flex;
     align-items: center;
-    gap: 1.75rem;
-    margin: 10px 0px;
+    gap: 50px;
+    /* width: auto; */
+    /* border: 1px solid yellow; */
 }
 
 .app-links a {
@@ -64,7 +70,7 @@ body {
     justify-content: center;
     align-items: center;
     gap: .5rem;
-    padding: .8rem 1.6rem;
+    padding: 10px 20px;
     border: 1px solid #6c8a87;
     border-radius: 999px;
     color: #fff;
