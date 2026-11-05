@@ -1,12 +1,16 @@
 // Checklist API tests (node:test, no extra dependencies).
-// The database tests need a real MongoDB and are skipped without one:
+// The API tests run on the local JSON-file storage, and again on a real MongoDB when one is set:
 //   MONGODB_URI=mongodb://127.0.0.1:27017 pnpm test:checklist
 
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const express = require('express');
 const { mountChecklist } = require('../src/checklist/checklistRoutes');
+const { mkdtempSync, rmSync } = require('node:fs');
+const { tmpdir } = require('node:os');
+const { join } = require('node:path');
 const { createChecklistDb } = require('../src/checklist/checklistDb');
+const { createLocalChecklistDb } = require('../src/checklist/checklistLocalDb');
 const logic = require('../src/checklist/checklistLogic');
 
 async function startApp(db, access) {
@@ -82,95 +86,123 @@ describe('checklist API without a database', () => {
   });
 });
 
-describe('checklist API with MongoDB', { skip: !process.env.MONGODB_URI && 'MONGODB_URI not set' }, () => {
-  const dbName = `checklist_test_${process.pid}`;
-  let db;
-  let app;
-  const trip = '/trips/test-trip/checklist';
+// The same API tests on each storage: `open()` gives a fresh, empty checklist storage.
+function apiTests(name, open, options = {}) {
+  describe(`checklist API with ${name}`, options, () => {
+    let db;
+    let app;
+    const trip = '/trips/test-trip/checklist';
 
-  before(async () => {
-    db = createChecklistDb({ dbName });
-    app = await startApp(db);
+    before(async () => {
+      db = open();
+      app = await startApp(db);
+    });
+    after(async () => {
+      // Drop the test collection (an empty database then disappears). A read/write-only
+      // user, like an Atlas app user, may not drop whole databases.
+      const col = await db.collection();
+      await col.drop();
+      await db.close();
+      app.server.close();
+    });
+
+    test('add, list, update, delete', async () => {
+      const created = await app.call('POST', trip, { name: 'Passport', category: 'Documents' });
+      assert.equal(created.status, 201);
+      const id = created.body.id;
+
+      const updated = await app.call('PATCH', `/checklist/${id}`, { done: true });
+      assert.equal(updated.status, 200);
+      assert.equal(updated.body.done, true);
+      assert.equal(updated.body.name, 'Passport');
+
+      const list = await app.call('GET', trip);
+      assert.deepEqual(list.body.map((i) => [i.name, i.done]), [['Passport', true]]);
+
+      assert.equal((await app.call('DELETE', `/checklist/${id}`)).status, 204);
+      assert.equal((await app.call('DELETE', `/checklist/${id}`)).status, 404);
+      assert.equal((await app.call('PATCH', `/checklist/${id}`, { done: false })).status, 404);
+    });
+
+    test('batch never duplicates and keeps existing state', async () => {
+      const items = [
+        { name: 'Charger', category: 'Electronics', source: 'default', suggestionKey: 'phone-charger' },
+        { name: 'Sunscreen', category: 'Health', source: 'suggested', reason: 'Beach trip', suggestionKey: 'sunscreen' },
+      ];
+      const first = await app.call('POST', `${trip}/batch`, { items });
+      assert.equal(first.body.added.length, 2);
+      await app.call('PATCH', `/checklist/${first.body.added[0].id}`, { done: true });
+
+      const [a, b] = await Promise.all([
+        app.call('POST', `${trip}/batch`, { items }),
+        app.call('POST', `${trip}/batch`, { items }),
+      ]);
+      assert.equal(a.status, 200);
+      assert.equal(b.status, 200);
+      assert.equal(a.body.added.length + b.body.added.length, 0);
+
+      const list = await app.call('GET', trip);
+      assert.equal(list.body.filter((i) => i.suggestionKey === 'phone-charger').length, 1);
+      assert.equal(list.body.find((i) => i.suggestionKey === 'phone-charger').done, true);
+    });
+
+    test('trips do not share items', async () => {
+      await app.call('POST', '/trips/trip-a/checklist', { name: 'Only on A' });
+      const b = await app.call('GET', '/trips/trip-b/checklist');
+      assert.deepEqual(b.body, []);
+    });
+
+    test('access: a private trip refuses outsiders on every route; other trips stay open', async () => {
+      // Stand-in for server.js: "private-trip" is a real trip whose only member sends x-user: ava.
+      const access = async (req, tripId) => {
+        if (tripId !== 'private-trip') return null;
+        if (!req.headers['x-user']) return { status: 401, error: 'Please log in to continue' };
+        return req.headers['x-user'] === 'ava' ? null : { status: 403, error: 'You are not in this trip.' };
+      };
+      const guarded = await startApp(db, access);
+      try {
+        const path = '/trips/private-trip/checklist';
+        const ava = { 'x-user': 'ava' };
+        const item = (await guarded.call('POST', path, { name: 'Passport' }, ava)).body;
+        assert.equal((await guarded.call('GET', path)).status, 401);
+        assert.equal((await guarded.call('GET', path, undefined, { 'x-user': 'bob' })).status, 403);
+        assert.equal((await guarded.call('POST', path, { name: 'Hat' }, { 'x-user': 'bob' })).status, 403);
+        assert.equal((await guarded.call('POST', `${path}/batch`, { items: [{ name: 'Hat', suggestionKey: 'hat' }] })).status, 401);
+        assert.equal((await guarded.call('PATCH', `/checklist/${item.id}`, { done: true }, { 'x-user': 'bob' })).status, 403);
+        assert.equal((await guarded.call('DELETE', `/checklist/${item.id}`)).status, 401);
+        assert.equal((await guarded.call('GET', path, undefined, ava)).body.length, 1); // untouched
+        assert.equal((await guarded.call('PATCH', `/checklist/${item.id}`, { done: true }, ava)).body.done, true);
+        assert.equal((await guarded.call('DELETE', `/checklist/${item.id}`, undefined, ava)).status, 204);
+        assert.equal((await guarded.call('GET', '/trips/preview-tokyo/checklist')).status, 200); // sample trip: open
+      } finally {
+        guarded.server.close();
+      }
+    });
   });
-  after(async () => {
-    // Drop the test collection (an empty database then disappears). A read/write-only
-    // user, like an Atlas app user, may not drop whole databases.
-    const col = await db.collection();
-    await col.drop();
-    await db.close();
-    app.server.close();
-  });
+}
 
-  test('add, list, update, delete', async () => {
-    const created = await app.call('POST', trip, { name: 'Passport', category: 'Documents' });
-    assert.equal(created.status, 201);
-    const id = created.body.id;
+apiTests('MongoDB', () => createChecklistDb({ dbName: `checklist_test_${process.pid}` }),
+  { skip: !process.env.MONGODB_URI && 'MONGODB_URI not set' });
 
-    const updated = await app.call('PATCH', `/checklist/${id}`, { done: true });
-    assert.equal(updated.status, 200);
-    assert.equal(updated.body.done, true);
-    assert.equal(updated.body.name, 'Passport');
+const localDir = mkdtempSync(join(tmpdir(), 'checklist-local-'));
+apiTests('a local JSON file', () => createLocalChecklistDb(join(localDir, 'checklist.json')));
 
-    const list = await app.call('GET', trip);
-    assert.deepEqual(list.body.map((i) => [i.name, i.done]), [['Passport', true]]);
+describe('local JSON-file storage', () => {
+  after(() => rmSync(localDir, { recursive: true, force: true }));
 
-    assert.equal((await app.call('DELETE', `/checklist/${id}`)).status, 204);
-    assert.equal((await app.call('DELETE', `/checklist/${id}`)).status, 404);
-    assert.equal((await app.call('PATCH', `/checklist/${id}`, { done: false })).status, 404);
-  });
+  test('items survive a restart (new storage, same file)', async () => {
+    const file = join(localDir, 'restart.json');
+    const first = await startApp(createLocalChecklistDb(file));
+    const added = await first.call('POST', '/trips/t1/checklist', { name: 'Passport' });
+    await first.call('PATCH', `/checklist/${added.body.id}`, { done: true });
+    first.server.close();
 
-  test('batch never duplicates and keeps existing state', async () => {
-    const items = [
-      { name: 'Charger', category: 'Electronics', source: 'default', suggestionKey: 'phone-charger' },
-      { name: 'Sunscreen', category: 'Health', source: 'suggested', reason: 'Beach trip', suggestionKey: 'sunscreen' },
-    ];
-    const first = await app.call('POST', `${trip}/batch`, { items });
-    assert.equal(first.body.added.length, 2);
-    await app.call('PATCH', `/checklist/${first.body.added[0].id}`, { done: true });
-
-    const [a, b] = await Promise.all([
-      app.call('POST', `${trip}/batch`, { items }),
-      app.call('POST', `${trip}/batch`, { items }),
-    ]);
-    assert.equal(a.status, 200);
-    assert.equal(b.status, 200);
-    assert.equal(a.body.added.length + b.body.added.length, 0);
-
-    const list = await app.call('GET', trip);
-    assert.equal(list.body.filter((i) => i.suggestionKey === 'phone-charger').length, 1);
-    assert.equal(list.body.find((i) => i.suggestionKey === 'phone-charger').done, true);
-  });
-
-  test('trips do not share items', async () => {
-    await app.call('POST', '/trips/trip-a/checklist', { name: 'Only on A' });
-    const b = await app.call('GET', '/trips/trip-b/checklist');
-    assert.deepEqual(b.body, []);
-  });
-
-  test('access: a private trip refuses outsiders on every route; other trips stay open', async () => {
-    // Stand-in for server.js: "private-trip" is a real trip whose only member sends x-user: ava.
-    const access = async (req, tripId) => {
-      if (tripId !== 'private-trip') return null;
-      if (!req.headers['x-user']) return { status: 401, error: 'Please log in to continue' };
-      return req.headers['x-user'] === 'ava' ? null : { status: 403, error: 'You are not in this trip.' };
-    };
-    const guarded = await startApp(db, access);
+    const again = await startApp(createLocalChecklistDb(file));
     try {
-      const path = '/trips/private-trip/checklist';
-      const ava = { 'x-user': 'ava' };
-      const item = (await guarded.call('POST', path, { name: 'Passport' }, ava)).body;
-      assert.equal((await guarded.call('GET', path)).status, 401);
-      assert.equal((await guarded.call('GET', path, undefined, { 'x-user': 'bob' })).status, 403);
-      assert.equal((await guarded.call('POST', path, { name: 'Hat' }, { 'x-user': 'bob' })).status, 403);
-      assert.equal((await guarded.call('POST', `${path}/batch`, { items: [{ name: 'Hat', suggestionKey: 'hat' }] })).status, 401);
-      assert.equal((await guarded.call('PATCH', `/checklist/${item.id}`, { done: true }, { 'x-user': 'bob' })).status, 403);
-      assert.equal((await guarded.call('DELETE', `/checklist/${item.id}`)).status, 401);
-      assert.equal((await guarded.call('GET', path, undefined, ava)).body.length, 1); // untouched
-      assert.equal((await guarded.call('PATCH', `/checklist/${item.id}`, { done: true }, ava)).body.done, true);
-      assert.equal((await guarded.call('DELETE', `/checklist/${item.id}`, undefined, ava)).status, 204);
-      assert.equal((await guarded.call('GET', '/trips/preview-tokyo/checklist')).status, 200); // sample trip: open
+      const list = await again.call('GET', '/trips/t1/checklist');
+      assert.deepEqual(list.body.map((i) => [i.id, i.name, i.done]), [[added.body.id, 'Passport', true]]);
     } finally {
-      guarded.server.close();
+      again.server.close();
     }
   });
 });

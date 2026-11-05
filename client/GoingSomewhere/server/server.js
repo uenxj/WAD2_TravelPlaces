@@ -12,6 +12,7 @@ const { createStore } = require('./src/store');
 const { createRateService } = require('./src/rates');
 const { createMongo } = require('./src/mongo');
 const { createChecklistDb } = require('./src/checklist/checklistDb');
+const { createLocalChecklistDb } = require('./src/checklist/checklistLocalDb');
 const { mountChecklist } = require('./src/checklist/checklistRoutes');
 const { createMongoStore } = require('./src/budgetMongoStore');
 const { createAuthStore, createMemoryAuthStore } = require('./src/auth/authStore');
@@ -39,10 +40,13 @@ const tripAccess = createTripAccess({
 });
 const app = createApp({ store, rates, access: tripAccess });
 
-const checklistDb = createChecklistDb({ mongo });
+// Checklist data: the shared team MongoDB when MONGODB_URI is set, otherwise a local JSON file.
+const checklistDb = process.env.MONGODB_URI
+  ? createChecklistDb({ mongo })
+  : createLocalChecklistDb(path.join(__dirname, 'data', 'checklist.json'));
 mountChecklist(app, { db: checklistDb, access: tripAccess });
 checklistDb.collection().then(
-  () => console.log('Checklist connected to MongoDB'),
+  () => console.log(`Checklist data: ${process.env.MONGODB_URI ? 'MongoDB' : 'local JSON file (server/data/checklist.json)'}`),
   (err) => console.warn(`Checklist: ${err.message}${err.cause ? ` (${err.cause.message})` : ''}`),
 );
 

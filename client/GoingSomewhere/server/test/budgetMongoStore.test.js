@@ -1,7 +1,7 @@
 // The MongoDB budget store must behave exactly like the JSON store: run the same requests
 // through the real budget routes (app.js) on both and compare every response.
 // Needs a real MongoDB; skipped without one:
-//   MONGODB_URI=<connection string> pnpm test:checklist
+//   MONGODB_URI=<connection string> pnpm test:budget
 
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert/strict');
