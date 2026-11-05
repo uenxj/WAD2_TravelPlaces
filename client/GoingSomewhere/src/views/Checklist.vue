@@ -185,7 +185,7 @@ function finishReview() {
   notify('Cleared for departure. Have a great trip! ✈', 'milestone')
 }
 
-// ----- generate a full list for the trip (the "Step 1" panel on an empty list) -----
+// ----- generate a full list for the trip (the panel shown on an empty list) -----
 const generating = ref(false)
 const tripTypeLabel = computed(() =>
   TRIP_TYPES.filter((t) => tripTypes.value.includes(t.id)).map((t) => t.label).join(' + '),
@@ -525,7 +525,6 @@ loadTrip()
 
       <!-- Empty list: build it from the trip, then the user reviews what we packed -->
       <section v-if="status === 'ready' && !items.length" class="generator mt-3" data-testid="generator">
-        <p class="eyebrow mb-1">Step 1</p>
         <h2 class="gen-title">We'll pack for you</h2>
         <p class="hint mb-3">Based on your trip. You just review it.</p>
         <ul class="gen-basis" aria-label="What the list is based on">
