@@ -150,7 +150,7 @@ test('the trip owner adds a travel buddy by email', async ({ page, browser, base
   await page.getByTestId('member-input').fill(benEmail)
   await page.getByTestId('add-member-btn').click()
   await expect(page.getByTestId('member-list')).toContainText('Ben Lim')
-  await expect(page.getByTestId('member-list')).toContainText('You · organiser')
+  await expect(page.getByTestId('member-list').getByRole('listitem').filter({ hasText: 'Ava Tan' })).toContainText('Organiser')
 
   await context.close()
 })
@@ -209,6 +209,7 @@ test('the trips pages fit a phone screen', async ({ page }) => {
   await addItem(page, { title: 'A rather long activity title that has to wrap on a narrow screen without overflowing', start: '10:00', end: '12:00' })
   await noHorizontalOverflow(page)
   await page.goto('/trips')
+  await expect(page.getByTestId('trip-row')).toBeVisible()
   await noHorizontalOverflow(page)
 })
 
@@ -250,4 +251,130 @@ test('the itinerary and its dialogs reflow at 320px with a long trip title', asy
   await page.getByRole('link', { name: 'Back to My Trips' }).click()
   await expect(page.getByTestId('trip-row')).toBeVisible()
   await noHorizontalOverflow(page)
+})
+
+
+test('a country-only destination shows weather when the primary lookup is unavailable', async ({ page }) => {
+  await signUp(page)
+  await createTrip(page, { name: 'Swiss winter', destination: 'Switzerland' })
+  await expect(page.getByRole('region', { name: 'Day weather and air quality summary', exact: true })).toBeVisible()
+  await expect(page.getByText('Weather is for a representative location in Switzerland.', { exact: false })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Refresh', exact: true })).toBeVisible()
+  await noHorizontalOverflow(page)
+})
+
+test('an existing trip retries missing location data and can recover without editing its details', async ({ page }) => {
+  await signUp(page)
+  await createTrip(page, { name: 'Keep this Swiss trip', destination: 'Switzerland' })
+  const path = new URL(page.url()).pathname
+  await page.route(`**/api${path}`, async route => {
+    const response = await route.fetch({ url: `${API}/api${path}` })
+    const trip = await response.json()
+    await route.fulfill({ json: { ...trip, center: null, timezone: '' } })
+  })
+  let attempts = 0
+  await page.route(`**/api${path}/location`, async route => {
+    attempts++
+    if (attempts === 1) return route.fulfill({ status: 503, json: { error: 'Could not look up this destination. Retry, or choose a city and country in Edit trip.' } })
+    await route.fulfill({ response: await route.fetch({ url: `${API}/api${path}/location` }) })
+  })
+  await page.reload()
+  await expect(page.getByRole('button', { name: 'Retry location', exact: true })).toBeVisible()
+  expect(attempts).toBe(1)
+  await page.getByRole('button', { name: 'Retry location', exact: true }).click()
+  await expect(page.getByRole('region', { name: 'Day weather and air quality summary', exact: true })).toBeVisible()
+  await expect(page.getByTestId('trip-title')).toHaveText('Keep this Swiss trip')
+  expect(attempts).toBe(2)
+  await expect(page.getByRole('button', { name: 'Retry location', exact: true })).toHaveCount(0)
+})
+
+async function mockDestinationSearch(page) {
+  await page.route('https://geocoding-api.open-meteo.com/**', route => {
+    const name = new URL(route.request().url()).searchParams.get('name').toLowerCase()
+    const results = name.includes('bern')
+      ? [{ id: 2, name: 'Bern', admin1: 'Bern', country: 'Switzerland', latitude: 46.948, longitude: 7.4474, timezone: 'Europe/Zurich', feature_code: 'PPLC' }]
+      : name.includes('switzerland')
+        ? [{ id: 3, name: 'Switzerland', country: 'Switzerland', latitude: 47.00016, longitude: 8.01427, timezone: 'Europe/Zurich', feature_code: 'PCLI' }]
+        : [{ id: 1, name: 'Zurich', admin1: 'Zurich', country: 'Switzerland', latitude: 47.3769, longitude: 8.5417, timezone: 'Europe/Zurich', feature_code: 'PPLA' }]
+    return route.fulfill({ json: { results } })
+  })
+}
+async function fillTripBasics(page, name) {
+  await page.goto('/trips/new')
+  await page.getByTestId('trip-name').fill(name)
+  await page.getByTestId('trip-start').fill(ymd(30))
+  await page.getByTestId('trip-end').fill(ymd(32))
+}
+
+test('destination suggestions save the selected city and replace it when editing', async ({ page }) => {
+  await signUp(page)
+  await mockDestinationSearch(page)
+  await fillTripBasics(page, 'Choose a Swiss city')
+  await page.getByTestId('trip-destination').fill('Zurich')
+  await page.getByRole('option', { name: /Zurich, Switzerland/ }).click()
+  await expect(page.getByTestId('trip-destination')).toHaveValue('Zurich, Switzerland')
+  await page.getByTestId('create-trip-btn').click()
+  await expect(page.getByTestId('trip-title')).toHaveText('Choose a Swiss city')
+  const tripId = new URL(page.url()).pathname.split('/').at(-1)
+  let saved = await (await page.request.get(`${API}/api/trips/${tripId}`)).json()
+  expect(saved.center).toEqual({ lat: 47.3769, lng: 8.5417 })
+  expect(saved.timezone).toBe('Europe/Zurich')
+  await page.getByTestId('edit-trip-btn').click()
+  await page.getByTestId('edit-trip-destination').fill('Bern')
+  await page.getByRole('option', { name: /Bern, Switzerland/ }).click()
+  await page.getByTestId('save-trip-btn').click()
+  await expect(page.getByTestId('trip-modal')).toBeHidden()
+  saved = await (await page.request.get(`${API}/api/trips/${tripId}`)).json()
+  expect(saved.destination).toBe('Bern, Switzerland')
+  expect(saved.center).toEqual({ lat: 46.948, lng: 7.4474 })
+  await noHorizontalOverflow(page)
+})
+
+test('country suggestions support keyboard selection and explain representative weather', async ({ page }) => {
+  await signUp(page)
+  await mockDestinationSearch(page)
+  await fillTripBasics(page, 'Swiss country trip')
+  const destination = page.getByTestId('trip-destination')
+  await destination.fill('Switzerland')
+  await expect(page.getByRole('option', { name: 'Switzerland', exact: true })).toBeVisible()
+  await destination.press('ArrowDown')
+  await destination.press('Enter')
+  await expect(page.getByText('Country selected. Choose a city for more local weather conditions.')).toBeVisible()
+  await expect(destination).toHaveAttribute('aria-expanded', 'false')
+  await page.getByTestId('create-trip-btn').click()
+  await expect(page.getByRole('region', { name: 'Day weather and air quality summary', exact: true })).toBeVisible()
+  await expect(page.locator('.location-context')).toContainText('representative location in Switzerland')
+})
+
+test('editing selected destination text clears its coordinates and free text still works during search failure', async ({ page }) => {
+  await signUp(page)
+  await mockDestinationSearch(page)
+  await fillTripBasics(page, 'Changed my destination')
+  const destination = page.getByTestId('trip-destination')
+  await destination.fill('Zurich')
+  await page.getByRole('option', { name: /Zurich, Switzerland/ }).click()
+  await page.route('https://geocoding-api.open-meteo.com/**', route => route.abort())
+  await destination.fill('Singapore')
+  await expect(page.getByText(/Location search is unavailable/)).toBeVisible()
+  await page.getByTestId('trip-name').click()
+  await page.getByTestId('create-trip-btn').click()
+  await expect(page.getByTestId('trip-title')).toHaveText('Changed my destination')
+  const tripId = new URL(page.url()).pathname.split('/').at(-1)
+  const saved = await (await page.request.get(`${API}/api/trips/${tripId}`)).json()
+  expect(saved.destination).toBe('Singapore')
+  expect(saved.center).toEqual({ lat: 1.29, lng: 103.85 })
+})
+
+test('an older backend gives a useful location recovery message instead of a raw 404', async ({ page }) => {
+  await signUp(page)
+  await createTrip(page)
+  const path = new URL(page.url()).pathname
+  await page.route(`**/api${path}`, async route => {
+    const response = await route.fetch({ url: `${API}/api${path}` })
+    await route.fulfill({ json: { ...await response.json(), center: null, timezone: '' } })
+  })
+  await page.route(`**/api${path}/location`, route => route.fulfill({ status: 404, contentType: 'text/html', body: '<pre>Cannot POST location</pre>' }))
+  await page.reload()
+  await expect(page.getByText('Location lookup could not be refreshed. Open Edit trip, choose a destination, and save to try again.')).toBeVisible()
+  await expect(page.getByText('Request failed (404)', { exact: true })).toHaveCount(0)
 })

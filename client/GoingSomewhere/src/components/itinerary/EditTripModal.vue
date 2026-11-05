@@ -1,6 +1,8 @@
 <script setup>
 import { reactive, ref, computed, watch } from 'vue'
 import ModalShell from './ModalShell.vue'
+import DestinationInput from './DestinationInput.vue'
+import { selectionFromTrip } from '../../itinerary/destination.js'
 import { todayLocal } from '../../itinerary/dates.js'
 
 const props = defineProps({
@@ -14,6 +16,7 @@ const today = todayLocal()
 const form = reactive({
   name: props.trip.name,
   destination: props.trip.destination,
+  destinationLocation: selectionFromTrip(props.trip),
   startDate: props.trip.startDate,
   endDate: props.trip.endDate,
 })
@@ -41,6 +44,7 @@ function submit() {
   emit('save', {
     name: form.name.trim(),
     destination: form.destination.trim(),
+    destinationLocation: form.destinationLocation,
     startDate: form.startDate,
     endDate: form.endDate,
   })
@@ -53,9 +57,7 @@ function submit() {
       <label for="edit-trip-name">Trip name
         <input id="edit-trip-name" v-model="form.name" maxlength="80" required data-testid="edit-trip-name" />
       </label>
-      <label for="edit-trip-destination">Destination
-        <input id="edit-trip-destination" v-model="form.destination" maxlength="100" placeholder="e.g. Kyoto, Japan" required data-testid="edit-trip-destination" />
-      </label>
+      <DestinationInput id="edit-trip-destination" testid="edit-trip-destination" v-model="form.destination" v-model:location="form.destinationLocation" />
       <div class="two-up">
         <label for="edit-trip-start">Start date
           <input id="edit-trip-start" v-model="form.startDate" type="date" :min="startMin" required data-testid="edit-trip-start" />

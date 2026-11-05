@@ -1,6 +1,7 @@
 <script setup>
 // "Create a trip". Plan a trip here (Discover / Explore) opens this with ?destination=...&country=... filled in.
 import { ref, watch } from 'vue'
+import DestinationInput from './DestinationInput.vue'
 import { useRoute, useRouter } from 'vue-router'
 import { itineraryApi } from '../../itinerary/api.js'
 import { safeReturnPath } from '../../services/auth.js'
@@ -20,7 +21,7 @@ const startingDestination = city && country && !city.toLowerCase().includes(coun
 // Cancel goes back to where "Plan a trip here" was clicked (Discover, a country page), otherwise to My Trips.
 const cancelTo = safeReturnPath(route.query.from, '/trips')
 
-const form = ref({ name: '', destination: startingDestination, startDate: '', endDate: '' })
+const form = ref({ name: '', destination: startingDestination, destinationLocation: null, startDate: '', endDate: '' })
 const error = ref('')
 const saving = ref(false)
 
@@ -51,7 +52,6 @@ async function createTrip() {
   <main class="content-page">
     <div class="page-top">
       <div>
-        <p class="eyebrow">Your travel space</p>
         <h1 class="page-heading">Create a trip</h1>
         <p class="muted-copy">Name it, pick the dates, then fill each day with activities and invite your travel buddies.</p>
       </div>
@@ -61,9 +61,7 @@ async function createTrip() {
       <label for="trip-name">Trip name
         <input id="trip-name" v-model="form.name" maxlength="80" placeholder="Our next adventure" required data-testid="trip-name" />
       </label>
-      <label for="trip-destination">Destination
-        <input id="trip-destination" v-model="form.destination" maxlength="100" placeholder="e.g. Kyoto, Japan" required data-testid="trip-destination" />
-      </label>
+      <DestinationInput id="trip-destination" testid="trip-destination" v-model="form.destination" v-model:location="form.destinationLocation" />
       <label for="trip-start">Start date
         <input id="trip-start" v-model="form.startDate" type="date" :min="today" required data-testid="trip-start" />
       </label>

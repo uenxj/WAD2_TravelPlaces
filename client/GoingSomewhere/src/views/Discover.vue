@@ -213,7 +213,6 @@ onBeforeUnmount(() => {
       <aside class="left-panel">
         <Transition name="slide-left" mode="out-in">
           <section v-if="!selected" key="intro" class="intro-view d-flex flex-column">
-            <p class="eyebrow">Find your next adventure</p>
             <h1 class="page-heading">Discover somewhere new.</h1>
             <p class="muted-copy">Explore the globe, get a recommendation, or let a little curiosity lead the way.</p>
             <div class="action-row mt-3">

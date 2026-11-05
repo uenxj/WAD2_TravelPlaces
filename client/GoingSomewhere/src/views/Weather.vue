@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import ActivityConditions from '../components/ActivityConditions.vue'
+import PlaneLoader from '../components/PlaneLoader.vue'
 import { localDate } from '../weather/conditions.js'
 import { searchLocations } from '../weather/api.js'
 import { DESTINATIONS } from '../data/destinations.js'
@@ -52,6 +53,7 @@ function choose(value) { location.value = value; matches.value = []; searchMessa
           <label for="weather-city">Search a city<input id="weather-city" v-model="query" type="search" placeholder="e.g. Kyoto, Japan" minlength="2" required /></label>
           <button class="secondary-action" :disabled="searching" type="submit">{{ searching ? 'Searching…' : 'Find location' }}</button>
         </form>
+        <PlaneLoader v-if="searching" compact class="mt-3" label="Searching locations…" />
         <p v-if="searchMessage" role="status" class="muted-copy mt-3">{{ searchMessage }}</p>
         <ul v-if="matches.length" class="location-results" aria-label="Matching locations">
           <li v-for="match in matches" :key="match.id"><button type="button" @click="choose(match)">{{ match.name }} · {{ match.region }} · {{ match.country }}</button></li>

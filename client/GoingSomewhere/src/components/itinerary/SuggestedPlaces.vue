@@ -1,6 +1,7 @@
 <script setup>
 // "Suggested places in <destination>": the top places from OpenTripMap. Add opens the activity form pre-filled.
 import { ref, watch } from 'vue'
+import PlaneLoader from '../PlaneLoader.vue'
 import { itineraryApi } from '../../itinerary/api.js'
 
 const props = defineProps({ destination: { type: String, required: true } })
@@ -53,7 +54,7 @@ watch(() => props.destination, () => {
     </div>
 
     <template v-if="open">
-      <p v-if="loading" class="muted-copy places-note" role="status">Finding ideas…</p>
+      <PlaneLoader v-if="loading" compact class="places-note" label="Finding ideas…" />
       <div v-else-if="error" class="places-error" role="alert"><p>{{ error }}</p><button type="button" class="secondary-action small" @click="load">Try again</button></div>
       <template v-else>
         <p class="muted-copy places-note" data-testid="top-places-area">

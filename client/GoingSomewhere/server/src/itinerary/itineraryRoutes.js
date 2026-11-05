@@ -1,7 +1,7 @@
 const express = require('express');
 const logic = require('./itineraryLogic');
 const { externalChecks } = require('./externalChecks');
-const { geocodeAddress, resolveDestination } = require('./geocode');
+const { geocodeAddress, resolveDestination, destinationFromSelection } = require('./geocode');
 const { getTopPlaces, PlacesError } = require('./places');
 const { normalizeEmail } = require('../auth/authLogic');
 const { isConnectionError } = require('../mongo');
@@ -121,8 +121,10 @@ function createItineraryRouter({ store, requireAuth, users, checks = externalChe
     const problem = logic.validateTrip(req.body);
     if (problem) return res.status(400).json({ error: problem });
     const { name, destination, startDate, endDate } = req.body;
+    const selected = destinationFromSelection(req.body.destinationLocation, destination);
+    if (req.body.destinationLocation != null && !selected) return res.status(400).json({ error: 'Select a destination from the suggestions again, or clear the selection and enter a city and country.' });
     // Destination centre point + timezone for the weather (empty if the lookup fails; never blocks saving)
-    const { center, timezone } = await resolveDestination(destination);
+    const { center, timezone, destinationScope } = selected || await resolveDestination(destination);
     const trip = await store.trips.create({
       name: name.trim(),
       destination: destination.trim(),
@@ -132,6 +134,7 @@ function createItineraryRouter({ store, requireAuth, users, checks = externalChe
       memberIds: [req.user.id],
       center,
       timezone,
+      destinationScope,
     });
     res.status(201).json(await presentTrip(trip));
   });
@@ -141,6 +144,18 @@ function createItineraryRouter({ store, requireAuth, users, checks = externalChe
     if (trip) res.json(await presentTrip(trip));
   });
 
+  // Recover a failed lookup without recreating the trip or overwriting its details.
+  router.post('/trips/:tripId/location', authed, async (req, res) => {
+    const trip = await loadTrip(req, res);
+    if (!trip) return;
+    const where = await resolveDestination(trip.destination);
+    if (!where.center || !where.timezone) return res.status(503).json({ error: 'Could not look up this destination. Retry, or choose a city and country in Edit trip.' });
+    const current = await loadTrip(req, res);
+    if (!current) return;
+    if (current.destination !== trip.destination) return res.status(409).json({ error: 'The destination changed. Refresh the trip and try again.' });
+    res.json(await presentTrip(await store.trips.update(trip._id, where)));
+  });
+
   // Edit trip details (any traveller in the trip can do this, like editing activities)
   router.put('/trips/:tripId', authed, async (req, res) => {
     const trip = await loadTrip(req, res);
@@ -148,6 +163,8 @@ function createItineraryRouter({ store, requireAuth, users, checks = externalChe
     const problem = logic.validateTrip(req.body, trip);
     if (problem) return res.status(400).json({ error: problem });
     const { name, destination, startDate, endDate } = req.body;
+    const selected = destinationFromSelection(req.body.destinationLocation, destination);
+    if (req.body.destinationLocation != null && !selected) return res.status(400).json({ error: 'Select a destination from the suggestions again, or clear the selection and enter a city and country.' });
 
     // Do not leave activities stranded outside the trip's new dates
     if (startDate !== trip.startDate || endDate !== trip.endDate) {
@@ -163,10 +180,10 @@ function createItineraryRouter({ store, requireAuth, users, checks = externalChe
 
     // Look the destination up again if it changed, or if this older trip never had a centre point saved
     const cleanDestination = destination.trim();
-    const where =
-      cleanDestination !== trip.destination || !trip.center
+    const where = selected || (
+      cleanDestination !== trip.destination || !trip.center || !trip.timezone
         ? await resolveDestination(cleanDestination)
-        : { center: trip.center, timezone: trip.timezone || '' };
+        : { center: trip.center, timezone: trip.timezone, destinationScope: trip.destinationScope || '' });
 
     const updated = await store.trips.update(trip._id, {
       name: name.trim(),
@@ -175,6 +192,7 @@ function createItineraryRouter({ store, requireAuth, users, checks = externalChe
       endDate,
       center: where.center,
       timezone: where.timezone,
+      destinationScope: where.destinationScope,
     });
     res.json(await presentTrip(updated));
   });
