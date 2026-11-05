@@ -1,4 +1,5 @@
 <script setup>
+import BackLink from '../components/BackLink.vue'
 // One real trip: its days, activities (with conflict warnings), suggested places, travellers and the
 // weather module's conditions. Route: /trips/:tripId. Only people in the trip can open it.
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
@@ -40,6 +41,10 @@ const conditionsVersion = ref(0) // bumped when the day summary refreshes, so ea
 
 const days = computed(() => (trip.value ? tripDays(trip.value) : []))
 const dayIndex = computed(() => days.value.findIndex((d) => d.date === selectedDate.value))
+const dayHeading = computed(() => {
+  const city = (trip.value?.destination ?? '').split(',')[0].trim().replace(/(^|\s)\S/g, letter => letter.toLocaleUpperCase())
+  return selectedDate.value ? `Day ${dayIndex.value + 1} · ${longDate(selectedDate.value)} · ${city}` : ''
+})
 const dayItems = computed(() => items.value.filter((i) => i.date === selectedDate.value))
 const conflictCountByDay = computed(() => {
   const counts = {}
@@ -185,21 +190,23 @@ onBeforeUnmount(() => clearInterval(timer))
     <section v-else-if="pageError && !trip" class="surface" role="alert">
       <h1 class="error-heading">We couldn’t open this trip</h1>
       <p class="muted-copy">{{ pageError }}</p>
-      <RouterLink class="secondary-action" to="/trips">Back to My Trips</RouterLink>
+      <BackLink to="/trips">Back to My Trips</BackLink>
     </section>
 
     <template v-else-if="trip">
-      <RouterLink class="back-link" to="/trips">← My Trips</RouterLink>
+      <BackLink to="/trips">Back to My Trips</BackLink>
       <div class="page-top">
-        <div>
+        <div class="trip-heading">
           <p class="eyebrow">Group trip</p>
-          <h1 class="page-heading" data-testid="trip-title">{{ trip.name }}</h1>
+          <div class="trip-title-row">
+            <h1 class="page-heading" data-testid="trip-title">{{ trip.name }}</h1>
+            <button type="button" class="secondary-action trip-edit" data-testid="edit-trip-btn" @click="openEditTrip">Edit trip</button>
+          </div>
           <p class="muted-copy">{{ trip.destination }} · {{ dateRange(trip.startDate, trip.endDate) }} · {{ memberCount }} traveller{{ memberCount === 1 ? '' : 's' }}</p>
         </div>
         <div class="action-row">
           <RouterLink class="secondary-action" :to="`/checklist?trip=${trip._id}`" data-testid="packing-link">Packing list</RouterLink>
           <RouterLink class="secondary-action" :to="budgetLink" data-testid="budget-link">Budget</RouterLink>
-          <button type="button" class="secondary-action" data-testid="edit-trip-btn" @click="openEditTrip">Edit trip</button>
           <button type="button" class="primary-action" data-testid="add-item-btn" @click="openAdd()">Add activity</button>
         </div>
       </div>
@@ -229,23 +236,18 @@ onBeforeUnmount(() => clearInterval(timer))
       <div class="itinerary-grid">
         <section aria-label="Day schedule">
           <div class="surface day-overview">
-            <div class="day-heading">
-              <div>
-                <p class="eyebrow">Day {{ dayIndex + 1 }} · {{ longDate(selectedDate) }}</p>
-                <h2>{{ dayItems.length }} {{ dayItems.length === 1 ? 'activity' : 'activities' }}</h2>
-              </div>
-              <span v-if="trip.timezone" class="pill">{{ trip.timezone }}</span>
-            </div>
             <ActivityConditions
               v-if="daySummary"
+              :heading="dayHeading"
               :activity="daySummary"
               :activities="dayActivities"
               :trip-id="trip._id"
               @refreshed="conditionsVersion++"
             />
-            <p v-else class="muted-copy">
-              Weather and air quality appear once the destination can be found on the map. Try “City, Country” in Edit trip.
-            </p>
+            <template v-else>
+              <p class="eyebrow day-label">{{ dayHeading }}</p>
+              <p class="muted-copy">Weather and air quality appear once the destination can be found on the map. Try “City, Country” in Edit trip.</p>
+            </template>
           </div>
 
           <p v-if="!dayItems.length" class="muted-copy empty-day" data-testid="empty-day">
@@ -304,10 +306,6 @@ onBeforeUnmount(() => clearInterval(timer))
 </template>
 
 <style scoped>
-.back-link {
-  color: var(--travel-accent);
-}
-
 .page-top {
   display: flex;
   align-items: center;
@@ -315,6 +313,17 @@ onBeforeUnmount(() => clearInterval(timer))
   flex-wrap: wrap;
   gap: 1rem;
   margin: 1rem 0 2rem;
+}
+
+.trip-heading { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.trip-title-row { display: flex; align-items: center; gap: 1rem; margin-bottom: .5rem; }
+.trip-title-row h1 { min-width: 0; margin: 0; }
+.trip-edit { flex-shrink: 0; white-space: nowrap; }
+.day-label { text-transform: none; letter-spacing: .02em; }
+@media (max-width: 575.98px) {
+  .trip-edit { padding: .5rem .8rem; font-size: .85rem; }
+  .page-top { gap: .75rem; }
+  .trip-title-row { flex-wrap: wrap; }
 }
 
 .error-heading {
@@ -408,6 +417,8 @@ onBeforeUnmount(() => clearInterval(timer))
   text-align: center;
 }
 
+.itinerary-grid > * { min-width: 0; }
+
 .itinerary-grid {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
@@ -456,6 +467,7 @@ onBeforeUnmount(() => clearInterval(timer))
 
 .side-column {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1.25rem;
 }
 
@@ -465,7 +477,7 @@ onBeforeUnmount(() => clearInterval(timer))
 
 .members h2 {
   margin: 0 0 .25rem;
-  font-size: 1.05rem;
+  font-size: var(--travel-section-size);
 }
 
 .small-copy {
@@ -484,6 +496,7 @@ onBeforeUnmount(() => clearInterval(timer))
 
 .member-list li {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: .7rem;
 }
@@ -508,12 +521,12 @@ onBeforeUnmount(() => clearInterval(timer))
   flex: 1;
   min-width: 0;
   padding: .55rem .8rem;
-  border: 1px solid var(--travel-border);
+  border: 1px solid var(--travel-control-border);
   border-radius: .6rem;
   background: var(--travel-bg);
   color: var(--travel-text);
   font: inherit;
-  font-size: .9rem;
+  font-size: 1rem;
 }
 
 .small {
@@ -532,7 +545,7 @@ onBeforeUnmount(() => clearInterval(timer))
 
 @media (max-width: 900px) {
   .itinerary-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 </style>

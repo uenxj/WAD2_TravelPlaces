@@ -6,6 +6,12 @@
     --travel-muted: #bdc8d8;
     --travel-border: #42546b;
     --travel-accent: #b9ddd2;
+    --travel-control-border: #71849b;
+    --travel-focus: #8ecae6;
+    --travel-card-padding: 1.5rem;
+    --travel-section-size: 1.125rem;
+    --travel-heading-size: clamp(2rem, 4vw, 3.3rem);
+    --app-header-height: 80px;
 }
 
 body {
@@ -20,24 +26,16 @@ body {
 
 .app-header {
     flex-shrink: 0;
-    /* width: min(100%, 1440px); */
-    min-width: 100%;
-    /* margin: auto; */
-    padding: 10px 20px;
-    display: flex;
     position: sticky;
-    top: 0px;
+    top: 0;
     z-index: 100;
-    align-items: center;
-    justify-content: space-between;
-    gap: 1rem;
-    /* border: 1px solid red; */
+    background: var(--travel-bg);
 }
 
 .app-brand {
     color: var(--travel-text);
     text-decoration: none;
-    font-size: clamp(0.9rem, 1.2vw, 1.3rem); /* min, preferred, max*/
+    font-size: 1.1rem;
     font-weight: 700;
     white-space: nowrap;
 }
@@ -49,9 +47,7 @@ body {
 .app-links {
     display: flex;
     align-items: center;
-    gap: 50px;
-    /* width: auto; */
-    /* border: 1px solid yellow; */
+    gap: clamp(.75rem, 2.5vw, 2.5rem);
 }
 
 .app-links a {
@@ -97,7 +93,7 @@ body {
 .app-shell button:focus-visible,
 .app-shell input:focus-visible,
 .app-shell select:focus-visible {
-    outline: 3px solid #8ecae6;
+    outline: 3px solid var(--travel-focus);
     outline-offset: 4px;
 }
 
@@ -108,7 +104,9 @@ body {
 }
 
 .page-heading {
-    font-size: clamp(2rem, 4vw, 3.3rem);
+    font-size: var(--travel-heading-size);
+    line-height: 1.2;
+    overflow-wrap: anywhere;
     letter-spacing: -.035em;
     font-weight: 700;
 }
@@ -127,7 +125,7 @@ body {
 }
 
 .surface {
-    padding: clamp(1.25rem, 3vw, 2.5rem);
+    padding: var(--travel-card-padding);
     border: 1px solid var(--travel-border);
     border-radius: 1.25rem;
     background: var(--travel-panel);
@@ -152,11 +150,12 @@ body {
 }
 
 .form-stack input,
-.form-stack select {
+.form-stack select,
+.form-stack textarea {
     width: 100%;
     min-width: 0;
     padding: .8rem 1rem;
-    border: 1px solid var(--travel-border);
+    border: 1px solid var(--travel-control-border);
     border-radius: .6rem;
     background: var(--travel-bg);
     color: var(--travel-text);
@@ -171,38 +170,36 @@ body {
     line-height: 1.6;
 }
 
-@media (max-width: 600px) {
-    .app-header {
-        padding: 1.25rem 5%;
-        flex-wrap: wrap;
-    }
-
-    .app-links {
-        gap: .8rem;
-        font-size: .9rem;
-        flex-wrap: wrap;
-    }
-
-    .app-links .primary-action {
-        padding: .55rem 1rem;
-    }
-
-    .content-page {
-        padding-top: 1.5rem;
-    }
+html { scroll-padding-block-start: calc(var(--app-header-height) + 16px); -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+body { background: var(--travel-bg); }
+.content-page { min-width: 0; }
+.page-heading { margin: 0 0 .75rem; }
+.eyebrow { margin-bottom: .5rem; }
+.primary-action, .secondary-action { min-height: 44px; line-height: 1.4; }
+.primary-action:disabled, .secondary-action:disabled { opacity: .6; cursor: not-allowed; }
+.form-stack label { min-width: 0; }
+.form-stack textarea { resize: vertical; }
+.form-stack input, .form-stack select, .form-stack textarea { min-height: 44px; color-scheme: dark; }
+.app-shell :is(h1, h2, h3, p) { overflow-wrap: break-word; }
+.skip-link { position: fixed; top: .5rem; left: 1rem; z-index: 1100; padding: .65rem 1rem; border-radius: .6rem; background: var(--travel-accent); color: var(--travel-bg); transform: translateY(-160%); }
+.skip-link:focus { transform: none; }
+#page-content:focus, #page-content h1:focus { outline: none; }
+@media (max-width: 767.98px) {
+    :root { --travel-card-padding: 1.25rem; }
+    .content-page { padding-top: 1.5rem; }
+    .app-shell input, .app-shell select, .app-shell textarea { font-size: 1rem; }
 }
 
-@media (max-width: 360px) {
-    .app-brand {
-        font-size: 1rem;
-    }
-
-    .app-links {
-        gap: .65rem;
-        font-size: .85rem;
-    }
-
-    .app-links .primary-action {
-        padding: .45rem .75rem;
-    }
+/* Mint postage perforations shared by saved and sample trip cards. */
+.stamp-card {
+    padding: 14px;
+    background: linear-gradient(145deg, #c5e4da, #8eb5aa);
+    mask-image:
+        radial-gradient(circle 5px at 0 50%, transparent 98%, #000 100%),
+        radial-gradient(circle 5px at 100% 50%, transparent 98%, #000 100%),
+        radial-gradient(circle 5px at 50% 0, transparent 98%, #000 100%),
+        radial-gradient(circle 5px at 50% 100%, transparent 98%, #000 100%);
+    mask-size: 100% 20px, 100% 20px, 20px 100%, 20px 100%;
+    mask-repeat: repeat-y, repeat-y, repeat-x, repeat-x;
+    mask-composite: intersect;
 }

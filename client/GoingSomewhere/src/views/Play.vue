@@ -1,4 +1,5 @@
 <script setup>
+import BackLink from '../components/BackLink.vue'
 import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { COUNTRIES } from '@/data/countries.js'
@@ -496,7 +497,7 @@ onBeforeUnmount(() => {
     <div class="play-page">
         <div class="shell">
             <header class="topbar">
-                <RouterLink to="/discover" class="back">← Back to Discover</RouterLink>
+                <BackLink to="/discover">Back to Discover</BackLink>
                 <div v-if="!finished" class="hud">
                     <Transition name="pop">
                         <span v-if="streak > 0" :key="streak" class="streak" :class="{ hot: streak >= 3 }"
@@ -545,7 +546,7 @@ onBeforeUnmount(() => {
                     <div class="actions">
                         <button class="btn-go" @click="startGame">Play again</button>
                         <button class="btn-ghost" @click="share">{{ copied ? 'Copied!' : 'Copy my score' }}</button>
-                        <RouterLink to="/" class="btn-ghost">Back home</RouterLink>
+                        <BackLink to="/">Back home</BackLink>
                     </div>
                 </section>
 
@@ -704,7 +705,6 @@ h1, h2, .end-score, .stamp { font-family: 'Bricolage Grotesque', 'DM Sans', sans
 
 /* ---------- top bar ---------- */
 .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; gap: 1rem; }
-.back { color: var(--sea); text-decoration: none; font-weight: 500; }
 .back:hover { text-decoration: underline; }
 .hud { display: flex; align-items: center; gap: .6rem; }
 .score-pill { background: var(--ink); color: #fff; padding: .4rem .9rem; border-radius: 999px; font-variant-numeric: tabular-nums; }

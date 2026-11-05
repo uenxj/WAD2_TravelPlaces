@@ -1,11 +1,20 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { previewMode } from '../services/preview.js'
-import { user, logout } from '../services/auth.js'
+import { user } from '../services/auth.js'
 import { DESTINATIONS } from '../data/destinations.js'
 
 const router = useRouter()
+const headerEl = ref(null)
+let headerObserver
+onMounted(() => {
+  headerObserver = new ResizeObserver(([entry]) => {
+    document.documentElement.style.setProperty('--app-header-height', `${entry.target.getBoundingClientRect().height}px`)
+  })
+  headerObserver.observe(headerEl.value)
+})
+onBeforeUnmount(() => headerObserver?.disconnect())
 
 // Destination search lives in the nav. Picking a match opens Discover with that
 // place selected via the ?destination= query, which Discover already watches.
@@ -21,14 +30,10 @@ function pickDestination(d) {
   router.push({ path: '/discover', query: { destination: d.id } })
 }
 
-async function signOut() {
-  await logout()
-  router.push('/discover')
-}
 </script>
 
 <template>
-  <header class="app-header">
+  <header ref="headerEl" class="app-header">
     <RouterLink class="app-brand" to="/" aria-label="GoingSomewhere home"><span aria-hidden="true">✈</span>
       GoingSomewhere</RouterLink>
 
@@ -52,7 +57,6 @@ async function signOut() {
         <RouterLink to="/trips">My Trips</RouterLink>
         <RouterLink class="primary-action" to="/trips/new">+ New trip</RouterLink>
         <RouterLink to="/profile">Profile</RouterLink>
-        <button v-if="user" type="button" class="app-logout" @click="signOut">Log out</button>
       </template>
       <RouterLink v-else class="primary-action" :to="{ path: '/login', query: { from: $route.fullPath } }">Log in
       </RouterLink>
@@ -61,172 +65,30 @@ async function signOut() {
 </template>
 
 <style scoped>
-.app-logout {
-  background: none;
-  border: 0;
-  padding: 0;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
+.app-header { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: .75rem 1.5rem; padding: 1rem 5% .75rem; }
+.app-brand { grid-column: 1; }
+.app-links { grid-column: 3; }
+.app-links > a { display: inline-flex; align-items: center; min-height: 44px; }
+.app-links > a[aria-current="page"]:not(.primary-action) { text-decoration: underline; text-underline-offset: .35em; }
+.app-search { position: relative; grid-column: 2; justify-self: end; width: 100%; max-width: 350px; min-width: 0; }
+.app-search-input { width: 100%; min-height: 44px; padding: .55rem 1rem; border: 1px solid var(--travel-control-border); border-radius: 999px; background: var(--travel-panel); color: var(--travel-text); font: inherit; }
+.app-search-input::placeholder { color: var(--travel-muted); opacity: 1; }
+.app-search-results { position: absolute; top: calc(100% + .5rem); inset-inline: 0; z-index: 20; max-height: 260px; overflow-y: auto; overscroll-behavior: contain; margin: 0; padding: .35rem; list-style: none; border: 1px solid var(--travel-border); border-radius: .85rem; background: var(--travel-panel); box-shadow: 0 12px 32px rgb(0 0 0 / .25); }
+.app-search-results button { width: 100%; min-height: 44px; padding: .5rem .75rem; border: 0; border-radius: .5rem; background: none; color: var(--travel-text); font: inherit; text-align: start; cursor: pointer; }
+.app-search-results button:focus-visible { background: #29473f; outline-offset: -3px; }
+.app-search-country { color: var(--travel-muted); font-size: .85rem; margin-inline-start: .3rem; }
+.app-search-empty { padding: .5rem .75rem; color: var(--travel-muted); font-size: .85rem; }
+@media (hover: hover) { .app-search-results button:hover { background: #29473f; } }
+@media (max-width: 1100px) {
+  .app-header { grid-template-columns: auto minmax(0, 1fr); }
+  .app-links { grid-column: 2; grid-row: 1; justify-self: end; gap: 1rem; }
+  .app-search { grid-column: 1 / -1; grid-row: 2; max-width: none; }
 }
-
-.app-logout:hover {
-  text-decoration: underline;
-}
-
-/* Laptop (768px and up): brand | search | links in one row, search sits left of the links */
-.app-header {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 1rem;
-  padding: 10px 20px;
-}
-
-.app-brand {
-  grid-column: 1;
-}
-
-.app-links {
-  grid-column: 3;
-}
-
-.app-search {
-  position: relative;
-  grid-column: 2;
-  justify-self: end;
-  width: 100%;
-  max-width: 350px;
-  margin-right: 50px;
-}
-
-.app-search-input {
-  width: 100%;
-  padding: .45rem 1rem;
-  border: 1px solid rgba(255, 255, 255, .14);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, .06);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
-  backdrop-filter: blur(14px) saturate(140%);
-  color: var(--travel-text);
-  font: inherit;
-  font-size: .9rem;
-  outline: none;
-  transition: border-color .2s ease, background .2s ease, box-shadow .2s ease;
-}
-
-.app-search-input::placeholder {
-  color: var(--travel-muted);
-}
-
-.app-search-input:focus {
-  border-color: rgba(185, 221, 210, .55);
-  background: rgba(255, 255, 255, .1);
-  box-shadow: 0 0 0 3px rgba(185, 221, 210, .12);
-}
-
-.app-search-results {
-  position: absolute;
-  top: calc(100% + .5rem);
-  left: 0;
-  right: 0;
-  z-index: 20;
-  max-height: 260px;
-  overflow-y: auto;
-  margin: 0;
-  padding: .35rem;
-  list-style: none;
-  border: 1px solid rgba(255, 255, 255, .14);
-  border-radius: 14px;
-  background: rgba(16, 26, 46, .55);
-  -webkit-backdrop-filter: blur(18px) saturate(150%);
-  backdrop-filter: blur(18px) saturate(150%);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, .35);
-}
-
-.app-search-results button {
-  width: 100%;
-  padding: .5rem .75rem;
-  border: 0;
-  border-radius: 10px;
-  background: none;
-  color: var(--travel-text);
-  font: inherit;
-  font-size: .9rem;
-  text-align: left;
-  cursor: pointer;
-}
-
-.app-search-results button:hover,
-.app-search-results button:focus-visible {
-  background: rgba(255, 255, 255, .1);
-  outline: none;
-}
-
-.app-search-country {
-  color: var(--travel-muted);
-  font-size: .8rem;
-  margin-left: .3rem;
-}
-
-.app-search-empty {
-  padding: .5rem .75rem;
-  color: var(--travel-muted);
-  font-size: .85rem;
-}
-
-/* Tablet (576px to 767px, Bootstrap sm to md): brand | search (centred) | links */
-@media (min-width: 576px) and (max-width: 767.98px) {
-  .app-header {
-    gap: .75rem;
-    padding: 12px;
-  }
-
-  .app-brand {
-    font-size: .85rem;
-  }
-
-  .app-links {
-    gap: .75rem;
-    font-size: .9rem;
-  }
-
-  .app-search {
-    justify-self: center;
-    max-width: 360px;
-    margin-right: 0;
-  }
-}
-
-/* Phone (below 576px, Bootstrap xs): row 1 = brand + links, row 2 = search */
 @media (max-width: 575.98px) {
-  .app-header {
-    grid-template-columns: auto minmax(0, 1fr);
-    row-gap: .6rem;
-    padding: .75rem 16px;
-  }
-
-  .app-brand {
-    grid-column: 1;
-    grid-row: 1;
-    font-size: .95rem;
-  }
-
-  .app-links {
-    grid-column: 2;
-    grid-row: 1;
-    justify-self: end;
-    gap: .9rem;
-    font-size: .9rem;
-  }
-
-  .app-search {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    justify-self: stretch;
-    max-width: none;
-    margin-right: 0;
-  }
+  .app-header { gap: .35rem; }
+  .app-brand { grid-column: 1 / -1; grid-row: 1; }
+  .app-links { grid-column: 1 / -1; grid-row: 2; justify-self: stretch; justify-content: space-between; gap: .35rem .5rem; font-size: .85rem; }
+  .app-links .primary-action { padding: .55rem .8rem; }
+  .app-search { grid-row: 3; }
 }
-
 </style>

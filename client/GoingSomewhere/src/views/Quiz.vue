@@ -1,4 +1,5 @@
 <script setup>
+import BackLink from '../components/BackLink.vue'
 import { computed, nextTick, ref } from 'vue'
 import { DESTINATIONS } from '../data/destinations.js'
 const interest = ref('')
@@ -23,8 +24,8 @@ const recommendations = computed(() => {
 </script>
 <template>
   <main class="content-page quiz-page">
-    <RouterLink class="quiz-back" to="/discover">← Back to Discover</RouterLink>
-    <p class="eyebrow mt-4">Travel Preference Quiz</p>
+    <BackLink to="/discover">Back to Discover</BackLink>
+    <p class="eyebrow">Travel Preference Quiz</p>
     <h1 class="page-heading">What does your next trip look like?</h1>
     <div class="quiz-layout">
     <form class="surface form-stack quiz-form" @submit.prevent="findDestinations" @change="submitted = false">
@@ -52,14 +53,13 @@ const recommendations = computed(() => {
   </main>
 </template>
 <style scoped>
-.quiz-back { color: var(--travel-accent); }
-.quiz-page .page-heading { font-size: clamp(1.8rem, 3.5vw, 2.7rem); margin-bottom: 1.5rem; }
+.quiz-page .page-heading { margin-bottom: 1.5rem; }
 .quiz-layout { display: grid; grid-template-columns: minmax(0, 360px) minmax(0, 1fr); align-items: start; gap: 2rem; }
 .quiz-form { width: 100%; padding: 1.25rem; gap: 1.1rem; }
 .quiz-form label { font-size: .9rem; }
 .quiz-form select { padding: .65rem .75rem; }
 .quiz-form .primary-action { padding: .7rem 1rem; font-size: .9rem; }
-.quiz-results { min-width: 0; scroll-margin-top: 1.25rem; }
+.quiz-results { min-width: 0; scroll-margin-top: 1rem; }
 .quiz-results:focus-visible { outline: 2px solid var(--travel-accent); outline-offset: 5px; border-radius: .2rem; }
 .recommendations { display: grid; gap: .75rem; }
 .recommendations article { padding: 1rem 1.25rem; }

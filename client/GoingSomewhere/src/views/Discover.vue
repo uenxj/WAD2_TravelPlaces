@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useReducedMotion } from '../composables/useReducedMotion.js'
 import Globe from 'globe.gl'
 import DestinationCard from '../../components/DestinationCard.vue'
 import { DESTINATIONS } from '../data/destinations.js'
@@ -8,8 +9,9 @@ import { DESTINATIONS } from '../data/destinations.js'
 const EARTH = 'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg'
 const BUMP = 'https://unpkg.com/three-globe/example/img/earth-topology.png'
 const SNAP_DEGREES = 15 // how close a drop must be to count as a pin
-const DEFAULT_HINT = 'Drag your traveller onto a glowing pin'
+const DEFAULT_HINT = 'Search for a destination or drag your traveller onto a glowing pin'
 
+const reducedMotion = useReducedMotion()
 const route = useRoute()
 const router = useRouter()
 const search = ref('')
@@ -70,9 +72,13 @@ function selectDestination(d) {
     router.replace({ path: '/discover', query: { ...route.query, destination: d.id } })
   }
   globe.controls().autoRotate = false
-  globe.pointOfView({ lat: d.lat, lng: d.lng, altitude: 1.5 }, 1200)
+  globe.pointOfView({ lat: d.lat, lng: d.lng, altitude: 1.5 }, reducedMotion.value ? 0 : 1200)
   // On phones/tablets the card replaces the globe, so jump back to the top of the page
   if (isCompact() && pagesEl.value) pagesEl.value.scrollTop = 0
+}
+
+function focusDestination() {
+  document.querySelector('.card-view h1')?.focus({ preventScroll: true })
 }
 
 // Picking a match from the search box.
@@ -85,15 +91,16 @@ function pickFromSearch(d) {
 // Closing the card brings back the same globe view as when the page first loads.
 function close() {
   selected.value = null
+  document.getElementById('destination-search')?.focus()
   hint.value = DEFAULT_HINT
   const { destination, ...query } = route.query
   router.replace({ path: '/discover', query })
-  globe.controls().autoRotate = true
-  globe.pointOfView({ lat: 20, lng: 20, altitude: 2.6 }, 1000)
+  globe.controls().autoRotate = !reducedMotion.value
+  globe.pointOfView({ lat: 20, lng: 20, altitude: 2.6 }, reducedMotion.value ? 0 : 1000)
   if (isCompact()) {
     // A short wait lets the globe appear on the page before we scroll down to it
     setTimeout(() => {
-      pagesEl.value?.scrollTo({ top: pagesEl.value.scrollHeight, behavior: 'smooth' })
+      pagesEl.value?.scrollTo({ top: pagesEl.value.scrollHeight, behavior: reducedMotion.value ? 'instant' : 'smooth' })
     }, 50)
   }
 }
@@ -143,14 +150,21 @@ function onDrop(e) {
   else hint.value = 'Drop closer to a glowing pin'
 }
 
+watch(reducedMotion, () => {
+  if (!globe) return
+  globe.controls().autoRotate = !reducedMotion.value && !selected.value
+  globe.controls().enableDamping = !reducedMotion.value
+  globe.ringsData(reducedMotion.value ? [] : DESTINATIONS)
+})
+
 onMounted(() => {
-  globe = new Globe(globeEl.value, { animateIn: true })
+  globe = new Globe(globeEl.value, { animateIn: !reducedMotion.value })
     .globeImageUrl(EARTH)
     .bumpImageUrl(BUMP)
     .backgroundColor('rgba(0,0,0,0)')
     .atmosphereColor('#6fb3ff')
     .atmosphereAltitude(0.2)
-    .ringsData(DESTINATIONS) // pulsing ring at each pin's base
+    .ringsData(reducedMotion.value ? [] : DESTINATIONS) // pulsing ring at each pin's base
     .ringColor(() => (t) => `rgba(255,210,127,${1 - t})`)
     .ringMaxRadius(2.5)
     .ringPropagationSpeed(1.2)
@@ -160,7 +174,8 @@ onMounted(() => {
   applyPins()
 
   const controls = globe.controls()
-  controls.autoRotate = true
+  controls.autoRotate = !reducedMotion.value
+  controls.enableDamping = !reducedMotion.value
   controls.autoRotateSpeed = 0.5
   controls.enableZoom = false
 
@@ -186,7 +201,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="discover" :class="{ 'is-selected': selected }">
+  <main class="discover" :class="{ 'is-selected': selected }">
     <div ref="pagesEl" class="discover-pages">
       <!-- Page 1: intro text, or the destination card once a place is picked -->
       <aside class="left-panel">
@@ -201,12 +216,12 @@ onBeforeUnmount(() => {
             </div>
           </section>
           <div v-else key="card" class="card-view d-flex justify-content-center align-items-center py-3 py-lg-0">
-            <DestinationCard :destination="selected" @close="close" @add="addToItinerary" @save="savePlace" />
+            <DestinationCard :destination="selected" @vue:mounted="focusDestination" @close="close" @add="addToItinerary" @save="savePlace" />
           </div>
         </Transition>
       </aside>
       <!-- Page 2: globe with the traveller to drag (hidden on phone/tablet while a card is open) -->
-      <main class="globe-wrap position-relative overflow-hidden" @dragover="onDragOver" @drop="onDrop">
+      <section aria-label="Destination globe" class="globe-wrap position-relative overflow-hidden" @dragover="onDragOver" @drop="onDrop">
         <div ref="globeEl" class="globe" :class="{ targeting: dragging }"></div>
 
         <p v-if="hint" class="hint position-absolute start-50 translate-middle-x text-center small pe-none">
@@ -220,9 +235,10 @@ onBeforeUnmount(() => {
             <path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7z" fill="currentColor" />
           </svg>
         </div>
-      </main>
+      </section>
     </div>
-  </div>
+  </main>
+
 </template>
 
 <style scoped>
@@ -310,7 +326,7 @@ onBeforeUnmount(() => {
 
 .slide-left-enter-active,
 .slide-left-leave-active {
-  transition: transform 0.4s ease, opacity 0.4s ease;
+  transition: transform 300ms cubic-bezier(0.2, 0, 0, 1), opacity 300ms ease;
 }
 
 .slide-left-enter-from,
@@ -360,10 +376,17 @@ onBeforeUnmount(() => {
     overflow-y: auto;
   }
 
+  .discover.is-selected .left-panel { overflow: hidden; }
+
+  .card-view {
+    height: 100%;
+    min-height: 0;
+  }
+
   /* Centres the intro text and gives it room on laptops */
   .intro-view {
     justify-content: center;
-    padding: 3rem;
+    padding: 2rem clamp(1.5rem, 3vw, 3rem);
   }
 
   .globe-wrap {
@@ -375,5 +398,11 @@ onBeforeUnmount(() => {
   .card-view :deep(.dest-card) {
     margin: 0;
   }
+}
+</style>
+<style scoped>
+@media (prefers-reduced-motion: reduce) {
+  .slide-left-enter-active, .slide-left-leave-active { transition: opacity 150ms ease; }
+  .slide-left-enter-from, .slide-left-leave-to { transform: none; }
 }
 </style>

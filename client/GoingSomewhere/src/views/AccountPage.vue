@@ -1,17 +1,24 @@
 <script setup>
+import BackLink from '../components/BackLink.vue'
 import BudgetPlanner from './Budget.vue'
 import ActivityConditions from '../components/ActivityConditions.vue'
 import ItineraryAtmosphere from '../components/ItineraryAtmosphere.vue'
 import { itineraryAtmosphere } from '../weather/atmosphere.js'
 import { SAMPLE_TRIPS } from '../data/sampleTrips.js'
 import { validateActivity } from '../weather/conditions.js'
+import { longDate } from '../itinerary/dates.js'
 import { computed, ref, watch, defineAsyncComponent } from 'vue'
 // Loaded only when the Packing tab is opened, so other account pages stay light.
 const PackingChecklist = defineAsyncComponent(() => import('./Checklist.vue'))
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { previewMode } from '../services/preview.js'
-import { user } from '../services/auth.js'
+import { user, logout } from '../services/auth.js'
 const route = useRoute()
+const router = useRouter()
+async function signOut() {
+  await logout()
+  router.push('/discover')
+}
 const tab = ref('Itinerary')
 const dayIndex = ref(0)
 const dayConditions = ref(null)
@@ -54,7 +61,7 @@ const shortDate = date => new Intl.DateTimeFormat('en', { month: 'short', day: '
   <main class="content-page" :class="{ 'itinerary-page': previewMode && tripDetail && tab === 'Itinerary' }">
     <ItineraryAtmosphere v-if="previewMode && tripDetail && tab === 'Itinerary'" :theme="atmosphere" />
     <template v-if="previewMode && tripDetail">
-      <RouterLink class="back-link" to="/trips">← My Trips</RouterLink>
+      <BackLink to="/trips">Back to My Trips</BackLink>
       <div class="page-top mt-4">
         <div><p class="eyebrow">Sample group trip</p><h1 class="page-heading">{{ selectedTrip.name }}</h1><p class="muted-copy">{{ selectedTrip.place }} · {{ selectedTrip.dates }} · {{ selectedTrip.members }}</p></div>
         <span class="sample-badge">Preview trip</span>
@@ -70,8 +77,9 @@ const shortDate = date => new Intl.DateTimeFormat('en', { month: 'short', day: '
           <button v-for="(day, index) in selectedTrip.days" :key="day.date" type="button" :aria-pressed="dayIndex === index" @click="dayIndex = index"><strong>Day {{ index + 1 }}</strong><span>{{ shortDate(day.date) }}</span></button>
         </nav>
         <section class="surface day-overview" aria-label="Selected itinerary day">
-          <div class="day-heading"><div><p class="eyebrow">Day {{ dayIndex + 1 }} · {{ shortDate(selectedDay.date) }}</p><h2>{{ selectedDay.title }}</h2><p class="muted-copy">{{ selectedDay.area }} · {{ selectedDay.activities.length }} activities</p></div><span class="sample-badge">{{ selectedTrip.timezone }}</span></div>
-          <ActivityConditions :activity="daySummary" :activities="selectedDay.activities" :planned-activities="tripActivities" :trip-id="`preview-${selectedTrip.id}`" @conditions="dayConditions = $event?.weather ?? null" @refreshed="conditionsVersion++" />
+          <ActivityConditions :heading="`Day ${dayIndex + 1} · ${longDate(selectedDay.date)} · ${selectedTrip.place.split(',')[0]}`" :activity="daySummary" :activities="selectedDay.activities" :planned-activities="tripActivities" :trip-id="`preview-${selectedTrip.id}`" @conditions="dayConditions = $event?.weather ?? null" @refreshed="conditionsVersion++">
+            <template #after-header><div class="day-heading"><div><h2>{{ selectedDay.title }}</h2><p class="muted-copy">{{ selectedDay.area }} · {{ selectedDay.activities.length }} activities</p></div></div></template>
+          </ActivityConditions>
         </section>
         <ol class="activities">
           <li v-for="activity in selectedDay.activities" :key="activity.id" class="weather-activity surface">
@@ -111,7 +119,7 @@ const shortDate = date => new Intl.DateTimeFormat('en', { month: 'short', day: '
     </template>
     <template v-else>
       <div class="page-top">
-        <div><p class="eyebrow">{{ route.path === '/trips' ? 'Your next adventures' : 'Your travel space' }}</p><h1 class="page-heading">{{ title }}</h1><p v-if="route.path === '/trips'" class="muted-copy">All the trips you organise or join, together in one place.</p></div>
+        <div><p class="eyebrow">{{ route.path === '/trips' ? 'Your next adventures' : 'Your travel space' }}</p><h1 class="page-heading">{{ title }}</h1></div>
       </div>
       <form v-if="route.path === '/trips/new'" class="surface form-stack trip-form" @submit.prevent>
         <label for="trip-name">Trip name<input id="trip-name" v-model="tripName" placeholder="Our next adventure" required /></label>
@@ -122,12 +130,20 @@ const shortDate = date => new Intl.DateTimeFormat('en', { month: 'short', day: '
         <button class="secondary-action" type="button" disabled>Create trip — coming soon</button>
       </form>
       <div v-else-if="previewMode && route.path === '/trips'" class="trip-grid">
-        <article v-for="trip in trips" :key="trip.id" class="trip-card">
+        <article v-for="trip in trips" :key="trip.id" class="trip-card stamp-card">
           <img :src="trip.image" :alt="trip.place" />
           <div class="trip-card-body"><div class="card-labels"><span class="sample-badge">{{ trip.role }}</span><span class="muted-copy small">Sample trip</span></div><h2>{{ trip.name }}</h2><p class="muted-copy">{{ trip.place }}<br>{{ trip.dates }}</p><div class="card-footer-row"><span class="muted-copy">{{ trip.members }}</span><RouterLink class="secondary-action" :to="`/trips/preview/${trip.id}`">View trip →</RouterLink></div></div>
         </article>
       </div>
-      <section v-else-if="user && route.path === '/profile'" class="surface profile-panel"><span class="avatar large">{{ (user.name || '?')[0].toUpperCase() }}</span><h2 class="mt-3">{{ user.name }}</h2><p class="muted-copy">{{ user.email }}</p><RouterLink class="secondary-action" to="/quiz">Take the preference quiz</RouterLink></section>
+      <section v-else-if="user && route.path === '/profile'" class="surface profile-panel">
+        <span class="avatar large">{{ (user.name || '?')[0].toUpperCase() }}</span>
+        <h2 class="mt-3">{{ user.name }}</h2>
+        <p class="muted-copy">{{ user.email }}</p>
+        <div class="action-row">
+          <RouterLink class="secondary-action" to="/quiz">Take the preference quiz</RouterLink>
+          <button type="button" class="secondary-action" @click="signOut">Log out</button>
+        </div>
+      </section>
       <section v-else-if="previewMode && route.path === '/profile'" class="surface profile-panel"><span class="avatar large">T</span><h2 class="mt-3">Preview traveller</h2><p class="muted-copy">traveller@example.com · Sample profile</p><hr><h3 class="h5">Travel preferences</h3><p class="muted-copy">Culture and food · A relaxed pace · Exploring anywhere</p><RouterLink class="secondary-action" to="/quiz">Take the preference quiz</RouterLink></section>
       <section v-else-if="previewMode && route.path === '/saved'" class="surface"><h2>Your inspiration starts here</h2><p class="muted-copy">Places you save will appear here when account storage is connected. Saving is unavailable in preview mode.</p><RouterLink class="secondary-action" to="/discover">Explore destinations</RouterLink></section>
       <section v-else class="surface"><p class="muted-copy">This account area is ready for integration. Trip storage and account features are not connected yet.</p><RouterLink class="secondary-action" to="/discover">Explore destinations</RouterLink></section>
@@ -145,26 +161,11 @@ const shortDate = date => new Intl.DateTimeFormat('en', { month: 'short', day: '
 .trip-form input[type="date"] { color-scheme: dark; }
 button:disabled { opacity: .65; cursor: not-allowed; }
 .trip-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; }
-.trip-card {
-  overflow: hidden;
-  padding: 14px;
-  background: linear-gradient(145deg, #c5e4da, #8eb5aa);
-  /* Circular cutouts along all four edges create a postage-stamp silhouette. */
-  mask-image:
-    radial-gradient(circle 5px at 0 50%, transparent 98%, #000 100%),
-    radial-gradient(circle 5px at 100% 50%, transparent 98%, #000 100%),
-    radial-gradient(circle 5px at 50% 0, transparent 98%, #000 100%),
-    radial-gradient(circle 5px at 50% 100%, transparent 98%, #000 100%);
-  mask-size: 100% 20px, 100% 20px, 20px 100%, 20px 100%;
-  mask-repeat: repeat-y, repeat-y, repeat-x, repeat-x;
-  mask-composite: intersect;
-}
 .trip-card > img { display: block; width: 100%; height: 220px; object-fit: cover; }
 .trip-card-body { padding: 1.5rem; background: var(--travel-panel); }
 .trip-card h2 { margin-top: 1rem; font-size: 1.5rem; }
 .card-labels, .card-footer-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; }
 .sample-badge { display: inline-flex; padding: .35rem .8rem; border-radius: 999px; background: #29473f; color: #cce9df; font-size: .8rem; }
-.back-link { color: var(--travel-accent); }
 .trip-tabs { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1.5rem; }
 .trip-tabs button { padding: .7rem 1.3rem; border: 1px solid var(--travel-border); border-radius: 999px; background: transparent; color: var(--travel-text); }
 .trip-tabs button[aria-pressed="true"] { background: #354d51; border-color: var(--travel-accent); }

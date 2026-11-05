@@ -1,9 +1,16 @@
 <script setup>
+import { nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { previewMode, setPreviewMode } from './services/preview.js'
 import AppHeader from './components/AppHeader.vue'
 import './styles/app.css'
 const router = useRouter()
+async function focusPage() {
+  await nextTick()
+  const target = document.querySelector('#page-content h1') || document.getElementById('page-content')
+  target?.setAttribute('tabindex', '-1')
+  target?.focus({ preventScroll: true })
+}
 function exitPreview() {
   setPreviewMode(false)
   router.push('/login')
@@ -16,8 +23,11 @@ function exitPreview() {
       <span><strong>Preview mode</strong> · Sample trips · Budget edits are saved for each preview trip.</span>
       <button type="button" @click="exitPreview">Exit preview</button>
     </div>
+    <a href="#page-content" class="skip-link">Skip to content</a>
     <AppHeader />
-    <RouterView />
+    <div id="page-content" class="app-content" tabindex="-1">
+      <RouterView v-slot="{ Component }"><component :is="Component" @vue:mounted="focusPage" /></RouterView>
+    </div>
   </div>
 </template>
 
@@ -41,6 +51,8 @@ function exitPreview() {
   color: #fff;
   padding: .3rem .8rem;
 }
+
+.home-shell > .app-content, .discover-shell > .app-content { flex: 1; min-height: 0; display: flex; flex-direction: column; }
 
 .home-shell {
   display: flex;

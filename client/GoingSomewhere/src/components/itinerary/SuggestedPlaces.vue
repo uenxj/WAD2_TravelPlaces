@@ -54,7 +54,7 @@ watch(() => props.destination, () => {
 
     <template v-if="open">
       <p v-if="loading" class="muted-copy places-note" role="status">Finding ideas…</p>
-      <p v-else-if="error" class="places-error" role="alert">{{ error }}</p>
+      <div v-else-if="error" class="places-error" role="alert"><p>{{ error }}</p><button type="button" class="secondary-action small" @click="load">Try again</button></div>
       <template v-else>
         <p class="muted-copy places-note" data-testid="top-places-area">
           Popular spots around {{ area }}. Not the right place? Add the country, e.g. “Paris, France”.
@@ -83,12 +83,13 @@ watch(() => props.destination, () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: .75rem;
 }
 
 .places-head h2 {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: var(--travel-section-size);
 }
 
 .small {
@@ -121,6 +122,7 @@ watch(() => props.destination, () => {
   margin: .8rem 0 0;
   padding: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   list-style: none;
 }
 

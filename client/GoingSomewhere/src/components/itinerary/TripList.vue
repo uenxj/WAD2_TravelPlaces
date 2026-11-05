@@ -43,9 +43,7 @@ onMounted(load)
       <div>
         <p class="eyebrow">Your next adventures</p>
         <h1 class="page-heading">My Trips</h1>
-        <p class="muted-copy">All the trips you organise or join, together in one place.</p>
       </div>
-      <RouterLink class="primary-action" to="/trips/new">+ New trip</RouterLink>
     </div>
 
     <p v-if="error" class="form-error" role="alert">{{ error }}</p>
@@ -56,17 +54,19 @@ onMounted(load)
       <RouterLink class="secondary-action" to="/trips/new">Create a trip</RouterLink>
     </section>
     <ul v-else class="trip-grid">
-      <li v-for="trip in trips" :key="trip._id" class="trip-card surface" data-testid="trip-row">
-        <p class="eyebrow">{{ trip.ownerId === user?.id ? 'You organise' : 'You are invited' }}</p>
-        <h2>
-          <RouterLink :to="`/trips/${trip._id}`" data-testid="trip-link">{{ trip.name }}</RouterLink>
-        </h2>
-        <p class="muted-copy">{{ trip.destination }}<br />{{ dateRange(trip.startDate, trip.endDate) }}</p>
-        <div class="card-footer-row">
-          <span class="muted-copy">{{ trip.memberIds.length }} traveller{{ trip.memberIds.length === 1 ? '' : 's' }}</span>
-          <div class="action-row">
-            <button v-if="trip.ownerId === user?.id" type="button" class="secondary-action small danger" @click="removeTrip(trip)">Delete</button>
-            <RouterLink class="secondary-action small" :to="`/trips/${trip._id}`">View trip →</RouterLink>
+      <li v-for="trip in trips" :key="trip._id" class="trip-card stamp-card" data-testid="trip-row">
+        <div class="surface trip-card-content">
+          <p class="eyebrow">{{ trip.ownerId === user?.id ? 'You organise' : 'You are invited' }}</p>
+          <h2>
+            <RouterLink :to="`/trips/${trip._id}`" data-testid="trip-link">{{ trip.name }}</RouterLink>
+          </h2>
+          <p class="muted-copy">{{ trip.destination }}<br />{{ dateRange(trip.startDate, trip.endDate) }}</p>
+          <div class="card-footer-row">
+            <span class="muted-copy">{{ trip.memberIds.length }} traveller{{ trip.memberIds.length === 1 ? '' : 's' }}</span>
+            <div class="action-row">
+              <button v-if="trip.ownerId === user?.id" type="button" class="secondary-action small danger" @click="removeTrip(trip)">Delete</button>
+              <RouterLink class="secondary-action small" :to="`/trips/${trip._id}`">View trip →</RouterLink>
+            </div>
           </div>
         </div>
       </li>
@@ -92,6 +92,8 @@ onMounted(load)
   padding: 0;
   list-style: none;
 }
+
+.trip-card-content { height: 100%; border-radius: 0; }
 
 .trip-card h2 {
   margin: .4rem 0 .5rem;

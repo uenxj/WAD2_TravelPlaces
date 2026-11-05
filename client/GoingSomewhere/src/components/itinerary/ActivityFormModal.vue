@@ -92,7 +92,7 @@ function submit() {
 
       <div class="action-row">
         <button class="primary-action" :disabled="saving" data-testid="save-item-btn">
-          {{ saving ? 'Saving…' : item ? 'Save changes' : 'Add to itinerary' }}
+          {{ saving ? 'Saving…' : item ? 'Save changes' : 'Add to Itinerary' }}
         </button>
         <button type="button" class="secondary-action" @click="emit('close')">Cancel</button>
       </div>

@@ -7,6 +7,7 @@ import { planningIssues } from '../planning/review.js'
 
 const props = defineProps({
   activity: { type: Object, required: true }, compact: Boolean,
+  heading: { type: String, default: '' },
   activities: { type: Array, default: null }, budget: { type: Object, default: null },
   plannedActivities: { type: Array, default: null },
   tripId: { type: String, default: '' }, externalIssues: { type: Array, default: () => [] },
@@ -34,7 +35,7 @@ const range = (low, high) => Math.round(low) === Math.round(high) ? `${Math.roun
 const slotTemperature = computed(() => isNumber(weather.value?.slotLow) && isNumber(weather.value?.slotHigh) ? range(weather.value.slotLow, weather.value.slotHigh) : null)
 const dateLabel = computed(() => {
   const date = props.activity.date
-  return date && Number.isFinite(Date.parse(date)) ? new Intl.DateTimeFormat('en', { timeZone: 'UTC', dateStyle: 'long' }).format(new Date(`${date}T12:00:00Z`)) : 'Choose a date'
+  return date && Number.isFinite(Date.parse(date)) ? new Intl.DateTimeFormat('en-SG', { timeZone: 'UTC', day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(`${date}T12:00:00Z`)) : 'Choose a date'
 })
 async function load(refresh = false) {
   const current = ++generation
@@ -90,10 +91,17 @@ onBeforeUnmount(() => { generation++ })
 <template>
   <section :class="['conditions-panel', { 'compact-conditions': compact }]" :aria-label="compact ? `Conditions during ${activity.name || 'your activity'}` : 'Day weather and air quality summary'" :aria-busy="loading">
     <header v-if="!compact" class="conditions-header">
-      <p class="muted-copy">{{ dateLabel }} · {{ activity.timezone }}</p>
+      <p :class="heading ? 'eyebrow day-label' : 'muted-copy'">{{ heading || `${dateLabel} · ${activity.name || 'Your destination'}` }}</p>
       <button type="button" class="secondary-action check-button" :disabled="loading" @click="load(true)">{{ loading ? 'Refreshing…' : 'Refresh' }}</button>
     </header>
-    <p v-if="loading" role="status" class="muted-copy loading-copy">Checking conditions…</p>
+    <slot name="after-header"></slot>
+    <p v-if="loading" role="status" class="muted-copy loading-copy" :class="{ 'cloud-loading': !compact }">
+      <svg v-if="!compact" class="loading-clouds" viewBox="0 0 64 44" width="56" height="40" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true">
+        <path class="cloud-behind" d="M33 23h20a6 6 0 0 0 0-12h-1a9 9 0 0 0-17-2 7 7 0 0 0-2 14Z" />
+        <path class="cloud-front" d="M17 35h27a9 9 0 0 0 0-18h-1a13 13 0 0 0-24-3 10.5 10.5 0 1 0-2 21Z" />
+      </svg>
+      <span>{{ compact ? 'Checking conditions…' : 'Asking the clouds…' }}</span>
+    </p>
     <p v-else-if="error" role="alert">{{ error }}</p>
     <template v-else-if="result && compact">
       <div class="slot-conditions">
@@ -166,6 +174,7 @@ onBeforeUnmount(() => { generation++ })
 .conditions-panel { min-width: 0; }
 .conditions-header { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: .75rem; margin-bottom: 1.1rem; }
 .conditions-header p { font-size: .85rem; margin: 0; overflow-wrap: anywhere; }
+.conditions-header .day-label { text-transform: none; letter-spacing: .02em; }
 .check-button { font-size: .8rem; padding: .45rem .9rem; }
 .check-button:disabled { opacity: .6; cursor: wait; }
 .conditions-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
@@ -187,6 +196,15 @@ onBeforeUnmount(() => { generation++ })
 .slot-label, .slot-item small { font-size: .75rem; color: var(--travel-muted); }
 .slot-item .poor-air { color: #ffd898; }
 .loading-copy { font-size: .85rem; }
+.cloud-loading { display: flex; align-items: center; gap: .75rem; min-height: 56px; }
+.loading-clouds { flex-shrink: 0; overflow: visible; color: var(--travel-accent); }
+.cloud-behind { opacity: .45; }
+.cloud-front { fill: var(--travel-panel); }
+@media (prefers-reduced-motion: no-preference) {
+  .cloud-front { animation: cloud-drift 1.8s ease-in-out infinite alternate; }
+  .cloud-behind { animation: cloud-drift 2.4s ease-in-out -.6s infinite alternate-reverse; }
+}
+@keyframes cloud-drift { from { transform: translate(0, 1px); } to { transform: translate(3px, -3px); } }
 @media (max-width: 650px) { .conditions-grid { grid-template-columns: 1fr; } }
 @media (max-width: 450px) { .slot-conditions { grid-template-columns: 1fr; gap: .8rem; } }
 </style>
