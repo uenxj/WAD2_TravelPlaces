@@ -183,18 +183,18 @@ onBeforeUnmount(() => { generation++ })
 .condition-card .condition-label { color: var(--travel-accent); font-weight: 700; }
 .condition-card .condition-number { font-size: 2rem; line-height: 1.2; font-weight: 650; letter-spacing: -.03em; }
 .conditions-hints { display: grid; gap: .6rem; padding: 0; margin: 1rem 0; list-style: none; }
-.conditions-hints li { padding: .9rem 1rem; background: #332d22; border: 1px solid #9c854b; border-radius: .75rem; color: #ffedbf; }
-.conditions-hints .warning { background: #3c252c; color: #ffd8dc; border-color: #bc7c86; }
-.conditions-hints .info { background: #203c3b; color: #d5ebe4; border-color: #638d84; }
+.conditions-hints li { padding: .9rem 1rem; background: var(--travel-warn-bg); border: 1px solid var(--travel-warn-border); border-radius: .75rem; color: var(--travel-warn-text); }
+.conditions-hints .warning { background: var(--travel-danger-bg); color: var(--travel-danger-text); border-color: var(--travel-danger-border); }
+.conditions-hints .info { background: var(--travel-info-bg); color: var(--travel-info-text); border-color: var(--travel-info-border); }
 .conditions-hints p { margin: .35rem 0 0; line-height: 1.6; font-size: .88rem; }
 .psi-observation { margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--travel-border); }
 .planning-coverage { color: var(--travel-muted); font-size: .8rem; line-height: 1.6; margin: .8rem 0 0; }
 .issue-source { display: block; font-size: .7rem; text-transform: uppercase; letter-spacing: .08em; margin-bottom: .25rem; }
-.coverage-note { color: #ffe3a3; font-size: .8rem; margin: .6rem 0 0; }
+.coverage-note { color: var(--travel-caution); font-size: .8rem; margin: .6rem 0 0; }
 .slot-conditions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; padding: .9rem 1rem; border-radius: .75rem; background: var(--travel-bg); }
 .slot-item { display: grid; align-content: start; gap: .25rem; font-size: .9rem; }
 .slot-label, .slot-item small { font-size: .75rem; color: var(--travel-muted); }
-.slot-item .poor-air { color: #ffd898; }
+.slot-item .poor-air { color: var(--travel-caution-strong); }
 .loading-copy { font-size: .85rem; }
 .cloud-loading { display: flex; align-items: center; gap: .75rem; min-height: 56px; }
 .loading-clouds { flex-shrink: 0; overflow: visible; color: var(--travel-accent); }
