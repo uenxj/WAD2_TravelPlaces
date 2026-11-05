@@ -96,7 +96,7 @@ In line with the course policy, these are the parts of the project that were wri
 | Login, sign-up and accounts backend and front-end wiring (PR #16) | `server/src/auth/`, `src/services/auth.js`, `src/views/Login.vue`, `server/test/auth.test.js` | Claude | Seth |
 | Budget linked to real trips: trip-member access check, Budget link on the trip page, destination currency lookup (PR #25) | `server/src/tripAccess.js`, `server/src/app.js`, `src/budget/destinationCurrency.js`, `src/views/Itinerary.vue`, `server/test/budgetAccess.test.js` | Claude Code | Seth |
 | Country Guessing Game (game flow & logic: timer, hints, attempts, streaks, API), tests | `src/views/Play.vue`, `src/data/countries.js`, `src/tests/e2e/guess-country.spec.js` for E2E testing | Claude | Angeline |
-| Explore page (led from game page): additional country information | `src/views/Explore.vue`, `src/data/locations.js`,| Claude | Angeline |
+| Explore page (led from game page): additional country information | `src/views/Explore.vue`, `src/data/locations.js`| Claude | Angeline |
 | Light/dark theme (tokens, toggle, colour replacement) and its theme test | `src/styles/app.css`, `src/composables/useTheme.js`, `src/components/AppHeader.vue`, `index.html`, colour values in the page and component styles, `tests/e2e/theme.spec.js` | Claude Code | Seth |
 | Packing recommendations: metadata-driven, itinerary-based suggestions (approach discussed with ChatGPT) | `src/checklist/catalog.js`, `recommend.js`, `tripSignals.js` | ChatGPT, Claude Code | Huong |
 | Interactive suitcase (design ideas from ChatGPT) | `components/checklist/SuitcaseStage.vue` | ChatGPT, Claude Code | Huong |
