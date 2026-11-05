@@ -2,11 +2,11 @@
 import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import TripBackLink from '../components/TripBackLink.vue'
-import ChecklistItem from '../../components/checklist/ChecklistItem.vue'
 import QuickPack from '../../components/checklist/QuickPack.vue'
 import EssentialsAlert from '../../components/checklist/EssentialsAlert.vue'
 import SuitcaseStage from '../../components/checklist/SuitcaseStage.vue'
 import FinalReview from '../../components/checklist/FinalReview.vue'
+import CategoryModal from '../../components/checklist/CategoryModal.vue'
 import { checklistApi } from '../checklist/api.js'
 import { itineraryApi } from '../itinerary/api.js'
 import { tripSignals } from '../checklist/tripSignals.js'
@@ -31,7 +31,6 @@ const status = ref('loading') // loading | ready | error
 const loadError = ref('')
 const pending = ref(new Set()) // item ids with a request in flight
 const adding = ref(false)
-const filter = ref('all') // all | todo | packed
 const form = ref({ name: '', category: 'Essentials', priority: 'essential' })
 const quickPackOpen = ref(false)
 
@@ -72,7 +71,7 @@ watch(tripId, () => {
   notNeeded.value = readStored('notNeeded')
   finalChecked.value = readStored('finalCheck') === true
   query.value = ''
-  openState.value = {}
+  openCategory.value = null
   load()
   loadTrip()
 })
@@ -125,38 +124,18 @@ watch(percent, (now, before) => {
 const query = ref('')
 const sections = computed(() => {
   const q = query.value.trim().toLowerCase()
-  const show = (i) => (filter.value === 'all' || (filter.value === 'packed' ? i.done : !i.done)) &&
-    (!q || i.name.toLowerCase().includes(q) || i.category.toLowerCase().includes(q))
+  const show = (i) => !q || i.name.toLowerCase().includes(q) || i.category.toLowerCase().includes(q)
   return CATEGORIES.map((c) => {
     const all = items.value.filter((i) => i.category === c.name)
-    return { ...c, all, shown: all.filter(show), packed: all.filter((i) => i.done).length }
+    return { ...c, all, shown: all.filter(show) }
   }).filter((s) => s.shown.length)
 })
 
-// ----- folding category cards -----
-// Finished categories fold away on their own in "All"; in "To pack" / "Packed" cards start open.
-// Clicking a header overrides that, remembered separately for each filter.
-// While searching, every card stays open so matches are never hidden.
-const openState = ref({}) // "filter:category" -> open (true) / folded (false), chosen by the user
-const forceOpen = computed(() => !!query.value.trim())
-const openKey = (s) => `${filter.value}:${s.name}`
-function isOpen(s) {
-  if (forceOpen.value) return true
-  return openState.value[openKey(s)] ?? (filter.value !== 'all' || s.packed < s.all.length)
-}
-function toggleSection(s) {
-  if (forceOpen.value) return
-  openState.value = { ...openState.value, [openKey(s)]: !isOpen(s) }
-}
-const allOpen = computed(() => sections.value.every(isOpen))
-function setAllOpen(open) {
-  openState.value = { ...openState.value, ...Object.fromEntries(sections.value.map((s) => [openKey(s), open])) }
-}
-function foldedSummary(s) {
-  const left = s.all.filter((i) => !i.done)
-  if (!left.length) return `All ${s.all.length} packed`
-  return `${left.length} left: ${left.slice(0, 2).map((i) => i.name).join(', ')}${left.length > 2 ? '…' : ''}`
-}
+// ----- category cards -----
+// One small card per category; "Edit" opens all its items in a pop-up.
+const openCategory = ref(null) // category name shown in the pop-up
+const openSection = computed(() => sections.value.find((s) => s.name === openCategory.value) ?? null)
+watch(openSection, (s) => { if (!s) openCategory.value = null }) // its last item was removed or searched away
 
 // ----- per-trip preferences kept in this browser (not shared) -----
 const storageKey = (name) => `checklist:${name}:${tripId.value}`
@@ -205,7 +184,7 @@ function finishReview() {
   notify('Cleared for departure. Have a great trip! ✈', 'milestone')
 }
 
-// ----- generate a full list for the trip (flow step 2) -----
+// ----- generate a full list for the trip (the "Step 1" panel on an empty list) -----
 const generating = ref(false)
 const tripTypeLabel = computed(() =>
   TRIP_TYPES.filter((t) => tripTypes.value.includes(t.id)).map((t) => t.label).join(' + '),
@@ -223,7 +202,7 @@ async function generateList() {
       added = added.concat((await checklistApi.addMany(tripId.value, body.slice(i, i + 50))).added)
     }
     items.value.push(...added)
-    notify(`Generated ${added.length} items${tripTypeLabel.value ? ` for your ${tripTypeLabel.value} trip` : ''}`, 'milestone')
+    notify(`Packed ${added.length} items into your suitcase${tripTypeLabel.value ? ` for your ${tripTypeLabel.value} trip` : ''}. Remove anything you don't need`, 'milestone')
   } catch (err) {
     notify(err.message, 'error')
     await load()
@@ -250,13 +229,27 @@ function toggleTripType(id) {
 // See src/checklist/RECOMMENDATIONS.md.
 const itineraryActivities = ref([])
 const contextSignals = ref([])
+const weatherDays = ref(0) // days the weather module answered for
+const tripLoading = ref(false)
 
 async function loadTrip() {
   const requestedTrip = tripId.value
   trip.value = null
   itineraryActivities.value = []
   contextSignals.value = []
+  weatherDays.value = 0
+  tripLoading.value = false
   if (requestedTrip === 'demo-trip') return
+  // "Generate" waits for this (weather takes a few seconds), but never more than 15 s.
+  tripLoading.value = true
+  try {
+    await Promise.race([loadTripContext(requestedTrip), new Promise((resolve) => setTimeout(resolve, 15000))])
+  } finally {
+    if (requestedTrip === tripId.value) tripLoading.value = false
+  }
+}
+
+async function loadTripContext(requestedTrip) {
   if (requestedTrip.startsWith('preview-')) {
     // Sample trips (preview mode): their illustrative itinerary in src/data/sampleTrips.js, in the
     // same shape as a real trip from the itinerary API.
@@ -290,7 +283,25 @@ async function loadTrip() {
   }
   if (requestedTrip !== tripId.value) return
   contextSignals.value = context.signals
+  weatherDays.value = context.weatherDays
 }
+
+// What "Generate" uses, shown in short above the button.
+const WEATHER_WORDS = { rain: 'Rainy', hot: 'Hot', cold: 'Cold', snow: 'Snowy' }
+const basis = computed(() => {
+  const t = trip.value
+  const acts = itineraryActivities.value.length
+  const abroad = contextSignals.value.some((s) => s.tag === 'abroad')
+  const weather = contextSignals.value.map((s) => WEATHER_WORDS[s.tag]).filter(Boolean)
+  return [
+    { icon: '📍', label: 'Destination', used: !!t?.destination,
+      text: t?.destination ? `${t.destination.split(',')[0]}${abroad ? ' · abroad' : ''}` : 'Not linked' },
+    { icon: '🗓', label: 'Itinerary', used: !!acts,
+      text: acts ? `${acts} activit${acts === 1 ? 'y' : 'ies'}` : 'No activities' },
+    { icon: '🌦', label: 'Weather', used: !!weather.length || weatherDays.value > 0,
+      text: tripLoading.value ? 'Checking…' : weather.length ? weather.join(', ') : weatherDays.value ? 'Mild' : 'No data' },
+  ]
+})
 
 const planInput = computed(() => ({
   tripTypes: tripTypes.value,
@@ -312,6 +323,23 @@ function notify(text, kind = 'ok', undo = null) {
   if (!undo && kind !== 'error') noticeTimer = setTimeout(() => (notice.value = null), 3000)
 }
 onBeforeUnmount(() => clearTimeout(noticeTimer))
+
+// The ideas list shows two suggestions, the rest scroll. Items differ in height (one or two lines
+// of reasons), so the height is measured rather than fixed in CSS.
+const SHOWN_SUGGESTIONS = 2
+const suggestionList = ref(null)
+function fitSuggestions() {
+  const list = suggestionList.value
+  if (!list) return
+  list.style.maxHeight = ''
+  const last = list.children[SHOWN_SUGGESTIONS - 1]
+  if (!list.children[SHOWN_SUGGESTIONS]) return
+  list.style.maxHeight = `${last.getBoundingClientRect().bottom - list.getBoundingClientRect().top + list.scrollTop}px`
+}
+watch(() => suggestions.value.map((s) => s.key).join(), () => nextTick(fitSuggestions))
+watch(status, () => nextTick(fitSuggestions))
+window.addEventListener('resize', fitSuggestions)
+onBeforeUnmount(() => window.removeEventListener('resize', fitSuggestions))
 
 function setPending(id, on) {
   const next = new Set(pending.value)
@@ -353,7 +381,7 @@ async function addCatalog(entries, source) {
     const { added, skipped } = await checklistApi.addMany(tripId.value, body)
     items.value.push(...added)
     const plural = (n) => `${n} item${n === 1 ? '' : 's'}`
-    if (added.length) notify(`Added ${plural(added.length)}${skipped ? ` · ${skipped} already listed` : ''}`)
+    if (added.length) notify(`Packed ${plural(added.length)} into your suitcase${skipped ? ` · ${skipped} already listed` : ''}`)
     else notify('Those are already on your list')
     if (skipped) await load() // someone else added them; show the current list
   } catch (err) {
@@ -411,13 +439,12 @@ async function remove(item) {
 // Undo a delete by re-creating the item (it gets a new id).
 async function restore(item) {
   notice.value = null
-  const { name, category, priority, source, reason, suggestionKey } = item
+  const { name, category, priority, source, reason, suggestionKey, done } = item
   try {
-    let restored = suggestionKey
-      ? (await checklistApi.addMany(tripId.value, [{ name, category, priority, source, reason, suggestionKey }])).added[0]
-      : await checklistApi.add(tripId.value, { name, category, priority, source, reason })
+    const restored = suggestionKey
+      ? (await checklistApi.addMany(tripId.value, [{ name, category, priority, source, reason, suggestionKey, done }])).added[0]
+      : await checklistApi.add(tripId.value, { name, category, priority, source, reason, done })
     if (!restored) return load()
-    if (item.done) restored = await checklistApi.update(restored.id, { done: true })
     items.value.push(restored)
     notify(`Restored “${name}”`)
   } catch (err) {
@@ -495,8 +522,32 @@ loadTrip()
       <SuitcaseStage v-if="status === 'ready' && items.length" class="mt-3 mb-0" :items="items" :pending="pending"
         :trip-code="tripCode" :cleared="finalChecked" @toggle="toggle" />
 
+      <!-- Empty list: build it from the trip, then the user reviews what we packed -->
+      <section v-if="status === 'ready' && !items.length" class="generator mt-3" data-testid="generator">
+        <p class="eyebrow mb-1">Step 1</p>
+        <h2 class="gen-title">We'll pack for you</h2>
+        <p class="hint mb-3">Based on your trip. You just review it.</p>
+        <ul class="gen-basis" aria-label="What the list is based on">
+          <li v-for="b in basis" :key="b.label" :class="{ off: !b.used }">
+            <span class="gen-icon" aria-hidden="true">{{ b.icon }}</span>
+            <span><strong>{{ b.label }}</strong>{{ b.text }}</span>
+          </li>
+        </ul>
+        <p class="gen-label">Trip type <span>optional</span></p>
+        <div class="chips">
+          <button v-for="t in TRIP_TYPES" :key="t.id" type="button" class="chip"
+            :class="{ on: tripTypes.includes(t.id) }" :aria-pressed="tripTypes.includes(t.id)"
+            @click="toggleTripType(t.id)">
+            <span aria-hidden="true">{{ t.emoji }}</span> {{ t.label }}
+          </button>
+        </div>
+        <button type="button" class="primary-action gen-btn" :disabled="adding || tripLoading" data-testid="generate" @click="generateList">
+          {{ generating ? 'Packing…' : tripLoading ? 'Checking the weather…' : `Generate · ${planSize} items` }}
+        </button>
+      </section>
+
       <!-- Add item -->
-      <form class="add-form" @submit.prevent="addCustom" v-if="status === 'ready'">
+      <form class="add-form" @submit.prevent="addCustom" v-if="status === 'ready' && items.length">
         <label class="visually-hidden" for="new-item">New item</label>
         <input id="new-item" v-model="form.name" class="form-control" maxlength="80"
           placeholder="Add something to pack…" autocomplete="off" data-testid="new-item">
@@ -578,104 +629,74 @@ loadTrip()
       <EssentialsAlert v-if="items.length" :items="items" :not-needed="notNeeded" :busy="adding"
         @add="addKey" @toggle="toggle" @dismiss="dismissEssential" />
 
-      <!-- Filters + Quick pack on the left, search on the right (spans both columns) -->
-      <div v-if="items.length" class="toolbar">
-        <div class="filters" role="group" aria-label="Show">
-          <button v-for="f in [['all', 'All', items.length], ['todo', 'To pack', remaining], ['packed', 'Packed', packedCount]]"
-            :key="f[0]" type="button" class="filter" :class="{ on: filter === f[0] }"
-            :aria-pressed="filter === f[0]" @click="filter = f[0]">
-            {{ f[1] }} <span class="count">{{ f[2] }}</span>
-          </button>
-        </div>
-        <button v-if="sections.length > 1 && !forceOpen" type="button" class="secondary-action sm" data-testid="fold-all"
-          @click="setAllOpen(!allOpen)">
-          {{ allOpen ? 'Collapse all' : 'Expand all' }}
-        </button>
-        <button v-if="remaining" type="button" class="primary-action sm quick-btn" data-testid="quick-pack"
-          @click="quickPackOpen = true">
-          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-            <rect x="3" y="8" width="18" height="12" rx="2" />
-            <path d="M8 8V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M12 12v4M10 14h4" />
-          </svg>
-          Quick pack
-        </button>
-        <label class="search">
-          <span class="visually-hidden">Search items</span>
-          <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
-            <circle cx="11" cy="11" r="6" />
-            <path d="m20 20-4.5-4.5" />
-          </svg>
-          <input v-model="query" type="search" placeholder="Search items…" autocomplete="off" data-testid="search">
-        </label>
-      </div>
-
-      <div class="row g-3 g-lg-4">
+      <div v-if="items.length" class="row g-3 g-lg-4">
 
         <!-- Checklist -->
         <section class="col-12 col-lg-8" aria-label="Packing items">
-          <p v-if="!items.length" class="hint packing-empty" data-testid="empty">
-            Your packing list is empty. Add an item above or use the trip-specific ideas to get started.
-          </p>
+          <div class="review-panel">
+            <!-- Review: the suitcase above is for packing, this list is for checking what's in it -->
+            <div class="toolbar">
+              <div class="review-head">
+                <h2 class="section-title mb-0">Review your list</h2>
+                <p class="hint my-0">Why each item is here. Edit or remove what you don't need.</p>
+              </div>
+              <label class="search">
+                <span class="visually-hidden">Search items</span>
+                <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true">
+                  <circle cx="11" cy="11" r="6" />
+                  <path d="m20 20-4.5-4.5" />
+                </svg>
+                <input v-model="query" type="search" placeholder="Search items…" autocomplete="off" data-testid="search">
+              </label>
+              <button v-if="remaining" type="button" class="primary-action sm quick-btn" data-testid="quick-pack"
+                @click="quickPackOpen = true">
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                  <rect x="3" y="8" width="18" height="12" rx="2" />
+                  <path d="M8 8V6a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M12 12v4M10 14h4" />
+                </svg>
+                Quick pack
+              </button>
+            </div>
 
-          <template v-else>
             <p v-if="!sections.length" class="sheet empty-filter">
-              <template v-if="query.trim()">No items match “{{ query.trim() }}”.
-                <button type="button" class="link-btn" @click="query = ''">Clear search</button></template>
-              <template v-else>{{ filter === 'todo' ? 'Nothing left to pack. Bon voyage! ✈' : 'Nothing packed yet. Tick items off as they go in the bag.' }}</template>
+              No items match “{{ query.trim() }}”.
+              <button type="button" class="link-btn" @click="query = ''">Clear search</button>
             </p>
 
             <div class="sections">
-              <section v-for="s in sections" :key="s.name" class="sheet category" :class="{ folded: !isOpen(s) }"
-                :data-testid="`category-${s.name}`">
-                <h2 class="cat-h">
-                  <button type="button" class="cat-head" :aria-expanded="isOpen(s)" :aria-controls="`cat-${s.name}`"
-                    @click="toggleSection(s)">
-                    <span class="cat-icon">
-                      <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" v-html="s.icon"></svg>
-                    </span>
-                    <span class="cat-name">{{ s.name }}</span>
-                    <Transition name="stamp">
-                      <span v-if="s.packed === s.all.length" class="cat-stamp">Packed</span>
-                    </Transition>
-                    <span class="cat-count">{{ s.packed }}/{{ s.all.length }}</span>
-                    <svg class="chev" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
-                  </button>
-                </h2>
-                <div class="cat-bar"><span :style="{ width: (s.packed / s.all.length) * 100 + '%' }"></span></div>
-                <p v-if="!isOpen(s)" class="cat-summary">{{ foldedSummary(s) }}</p>
-                <div :id="`cat-${s.name}`" class="cat-body">
-                  <div class="cat-inner">
-                    <ul class="list-unstyled mb-0">
-                      <ChecklistItem v-for="item in s.shown" :key="item.id" :item="item" :busy="pending.has(item.id)"
-                        @toggle="toggle(item)" @save="(patch) => save(item, patch)" @remove="remove(item)" />
-                    </ul>
-                  </div>
-                </div>
+              <section v-for="s in sections" :key="s.name" class="sheet category" :data-testid="`category-${s.name}`">
+                <h3 class="cat-head">
+                  <span class="cat-icon">
+                    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" v-html="s.icon"></svg>
+                  </span>
+                  <span class="cat-name">{{ s.name }}</span>
+                  <span class="cat-count">{{ s.shown.length }}</span>
+                </h3>
+                <button type="button" class="primary-action sm cat-edit" :aria-label="`Edit ${s.name}`"
+                  :data-testid="`open-${s.name}`" @click="openCategory = s.name">Edit</button>
               </section>
             </div>
-          </template>
+          </div>
         </section>
 
         <aside class="col-12 col-lg-4">
-          <section class="sheet ideas">
-            <h2 class="section-title">Trip-specific ideas</h2>
-            <p class="hint">What does this trip involve? We'll suggest items, best matches first, with the reason.</p>
+          <section class="sheet ideas" aria-labelledby="ideas-title">
+            <div class="ideas-head">
+              <h2 id="ideas-title" class="section-title mb-0">Trip-specific ideas</h2>
+              <p class="hint my-0">More ideas, straight into your suitcase.</p>
+            </div>
             <div class="chips">
               <button v-for="t in TRIP_TYPES" :key="t.id" type="button" class="chip"
                 :class="{ on: tripTypes.includes(t.id) }" :aria-pressed="tripTypes.includes(t.id)"
                 @click="toggleTripType(t.id)">
                 <span aria-hidden="true">{{ t.emoji }}</span> {{ t.label }}
               </button>
-            </div>
-
-            <div v-if="!items.length" class="packing-generator">
-              <button type="button" class="primary-action sm w-100" :disabled="adding" data-testid="generate" @click="generateList">
-                {{ generating ? 'Packing your list…' : `Generate my packing list · ${planSize} items` }}
-              </button>
+              <button v-if="tripTypes.length" type="button" class="link-btn deselect" data-testid="deselect-trip-types"
+                @click="tripTypes = []">Deselect all</button>
             </div>
 
             <template v-if="suggestions.length">
-              <ul class="suggestions">
+              <ul ref="suggestionList" class="suggestions">
                 <li v-for="s in suggestions" :key="s.key">
                   <div class="min-w-0">
                     <span class="s-name">{{ s.name }}
@@ -692,8 +713,6 @@ loadTrip()
                 @click="addCatalog(suggestions, 'suggested')">Add all {{ suggestions.length }}</button>
             </template>
             <p v-else-if="tripTypes.length" class="hint mb-0">✓ Everything suggested is already on your list.</p>
-
-
           </section>
 
           <section v-if="missingDefaults.length" class="sheet ideas mt-3">
@@ -710,6 +729,8 @@ loadTrip()
     </div>
 
     <QuickPack v-if="quickPackOpen" :items="items" @toggle="toggle" @close="quickPackOpen = false" />
+    <CategoryModal v-if="openSection" :section="openSection" :pending="pending" @close="openCategory = null"
+      @toggle="toggle" @save="save" @remove="remove" />
     <FinalReview v-if="finalOpen" :items="items" @done="finishReview" @close="finalOpen = false" />
 
     <Transition name="toast">
@@ -873,21 +894,14 @@ loadTrip()
 
 
 
-.stamp-enter-active {
-  transition: transform 0.35s cubic-bezier(0.2, 1.4, 0.5, 1), opacity 0.35s ease;
-}
-
-.stamp-enter-from {
-  transform: scale(1.8) rotate(-24deg);
-  opacity: 0;
-}
-
 /* ---------- add form (same field style as .form-stack) ---------- */
+/* Blocks below the suitcase (add form, final call / boarding pass, review) are 1.5rem apart */
 .add-form {
+  position: relative;
   display: grid;
   grid-template-columns: 1fr 160px 140px auto;
   gap: 0.6rem;
-  margin: 1.25rem 0;
+  margin: 1.5rem 0;
 }
 
 .form-control,
@@ -1002,10 +1016,12 @@ loadTrip()
 }
 
 /* ---------- smart sort ---------- */
+/* Floats in the gap under the form, so it takes no space and the gaps stay even */
 .auto-hint {
-  grid-column: 1 / -1;
-  min-height: 1.2rem;
-  margin: -0.15rem 0 0;
+  position: absolute;
+  top: calc(100% + 0.2rem);
+  left: 0;
+  margin: 0;
   font-size: 0.8rem;
   color: var(--travel-accent);
 }
@@ -1024,7 +1040,7 @@ loadTrip()
 .boarding-pass {
   display: grid;
   grid-template-columns: 1fr 150px;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
   border: 1px solid var(--travel-accent);
   border-radius: 1.25rem;
   background: linear-gradient(120deg, #1d3a3c 0%, #19273d 80%);
@@ -1078,7 +1094,7 @@ loadTrip()
 .bp-meta {
   display: grid;
   grid-template-columns: repeat(4, auto);
-  justify-content: start;
+  justify-content: space-between; /* lines up with HME … PAR above */
   gap: 0.5rem 1.75rem;
   margin: 1rem 0 0;
 }
@@ -1157,8 +1173,67 @@ loadTrip()
   opacity: 0;
 }
 
-.packing-generator { margin-bottom: 1.25rem; }
-.packing-empty { margin-top: 0; }
+/* ---------- generator (empty list) ---------- */
+.generator {
+  margin-bottom: 1.25rem;
+  padding: 1.5rem 1.6rem;
+  border: 1px solid var(--travel-accent);
+  border-radius: 1.25rem;
+  background: linear-gradient(120deg, #1d3a3c 0%, #19273d 80%);
+}
+
+.gen-title {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.gen-basis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.6rem;
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.25rem;
+}
+
+.gen-basis li {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--travel-border);
+  border-radius: 0.9rem;
+  background: rgba(16, 26, 46, 0.45);
+  font-size: 0.85rem;
+  line-height: 1.45;
+  color: var(--travel-muted);
+  overflow-wrap: anywhere;
+}
+
+.gen-basis li.off { opacity: 0.6; }
+.gen-basis strong { display: block; color: var(--travel-text); }
+.gen-icon { font-size: 1.15rem; line-height: 1.2; }
+
+.gen-label {
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+}
+
+.gen-label span {
+  margin-left: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--travel-muted);
+}
+
+.gen-btn {
+  display: block;
+  width: 100%;
+  padding: 0.85rem 1rem;
+  font-size: 1.05rem;
+}
 
 /* ---------- final call ---------- */
 .final-call {
@@ -1167,7 +1242,7 @@ loadTrip()
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.5rem;
   padding: 1.1rem 1.4rem;
   border: 1px dashed var(--travel-accent);
   border-radius: 1.25rem;
@@ -1213,16 +1288,34 @@ loadTrip()
 }
 
 /* ---------- toolbar ---------- */
+.review-head {
+  flex: 0 0 100%;
+}
+
+/* Two blocks side by side: the review panel (heading, search, cards) and the ideas panel */
+.review-panel {
+  padding: 1.1rem 1.25rem 1.25rem;
+  border: 1px solid var(--travel-border);
+  border-radius: 1.25rem;
+  background: var(--travel-panel);
+}
+
+/* cards sit darker inside the panel, like the suitcase on its stage */
+.review-panel .category {
+  background: var(--travel-bg);
+}
+
+.ideas-head {
+  margin-bottom: 0.9rem;
+}
+
 .toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 0.6rem;
   margin-bottom: 0.9rem;
-}
-
-.toolbar .filters {
-  margin-bottom: 0;
 }
 
 .search {
@@ -1231,22 +1324,13 @@ loadTrip()
   gap: 0.4rem;
   flex: 1;
   min-width: 120px;
-  max-width: 280px;
   min-height: 38px;
-  margin: 0 0 0 auto;
+  margin: 0; /* as wide as the cards below; Quick pack, when shown, sits at its end */
   padding: 0 0.85rem;
   border: 1px solid var(--travel-border);
   border-radius: 999px;
   background: var(--travel-bg);
   color: var(--travel-muted);
-}
-
-/* Desktop: exactly as wide as the sidebar column below it, flush right */
-@media (min-width: 992px) {
-  .search {
-    flex: 0 0 calc((100% + 1.5rem) / 3 - 1.5rem);
-    max-width: none;
-  }
 }
 
 .search:focus-within {
@@ -1286,6 +1370,12 @@ loadTrip()
 
 .quick-btn {
   flex-shrink: 0;
+}
+
+.deselect {
+  align-self: center;
+  margin-left: 0.25rem;
+  font-size: 0.85rem;
 }
 
 .quick-btn svg {
@@ -1435,120 +1525,53 @@ loadTrip()
   color: var(--travel-accent);
 }
 
-.footnote {
-  margin: 1.1rem 0 0;
-  font-size: 0.75rem;
-  line-height: 1.5;
-  color: var(--travel-muted);
-}
-
 /* ---------- checklist ---------- */
 .empty-filter {
   text-align: center;
   color: var(--travel-muted);
 }
 
-.filters {
-  display: flex;
-  gap: 0.4rem;
-  margin-bottom: 0.9rem;
-  overflow-x: auto;
-}
-
-.filter {
-  padding: 0.4rem 0.95rem;
-  border: 1px solid var(--travel-border);
-  border-radius: 999px;
-  background: transparent;
-  color: var(--travel-text);
-  white-space: nowrap;
-}
-
-.filter.on {
-  background: #354d51;
-  border-color: var(--travel-accent);
-}
-
-.filter .count {
-  font-size: 0.75rem;
-  color: var(--travel-muted);
-}
-
 .sections {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
   gap: 0.9rem;
-  align-items: start;
 }
 
-/* The whole header is a button that folds / unfolds the card */
-.cat-h {
-  margin: 0;
+/* Same-size cards: icon, name and count, with "Edit" beside them */
+.category {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.85rem 0.9rem;
 }
 
 .cat-head {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  width: 100%;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
 }
 
-.cat-head:focus-visible {
-  outline: 3px solid #8ecae6;
-  outline-offset: 4px;
-  border-radius: 8px;
+/* count right after the name */
+.category .cat-name {
+  flex: 0 1 auto;
+  font-size: 1rem;
 }
 
-.chev {
+.category .cat-count {
   flex-shrink: 0;
-  fill: none;
-  stroke: var(--travel-muted);
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  transition: transform 0.25s ease;
 }
 
-.folded .chev {
-  transform: rotate(-90deg);
-}
-
-.cat-head:hover .chev {
-  stroke: var(--travel-text);
-}
-
-.cat-summary {
-  margin: 0.5rem 0 0;
-  font-size: 0.82rem;
-  color: var(--travel-muted);
-}
-
-/* Smooth fold: animate the row height from its content to 0 */
-.cat-body {
-  display: grid;
-  grid-template-rows: 1fr;
-  transition: grid-template-rows 0.3s ease;
-}
-
-.cat-inner {
-  min-height: 0;
-  overflow: hidden;
-}
-
-.folded .cat-body {
-  grid-template-rows: 0fr;
-  visibility: hidden; /* folded items leave the tab order and screen readers */
-  transition: grid-template-rows 0.3s ease, visibility 0s linear 0.3s;
+/* same green as the page's other main buttons (.primary-action) */
+.cat-edit {
+  flex-shrink: 0;
+  margin-left: auto;
 }
 
 .cat-icon {
+  flex-shrink: 0;
   display: grid;
   place-items: center;
   width: 34px;
@@ -1568,39 +1591,15 @@ loadTrip()
 
 .cat-name {
   flex: 1;
-}
-
-.cat-stamp {
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  line-height: 1.5;
-  color: var(--travel-accent);
-  border: 2px solid var(--travel-accent);
-  border-radius: 4px;
-  padding: 0 0.4rem;
-  transform: rotate(-8deg);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .cat-count {
   font-size: 0.85rem;
   color: var(--travel-muted);
-}
-
-.cat-bar {
-  height: 3px;
-  margin: 0.75rem 0 0.15rem;
-  background: #2a3a52;
-  border-radius: 2px;
-}
-
-.cat-bar span {
-  display: block;
-  height: 100%;
-  background: var(--travel-accent);
-  border-radius: 2px;
-  transition: width 0.4s ease;
 }
 
 /* ---------- buttons: shared .primary-action / .secondary-action, plus a small size ---------- */
@@ -1629,7 +1628,7 @@ loadTrip()
   width: fit-content;
   max-width: 520px;
   margin: 0 auto;
-  z-index: 1050;
+  z-index: 1070; /* above the pop-ups, so "Undo" still works from inside one */
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -1750,7 +1749,6 @@ loadTrip()
 
   .search {
     max-width: none;
-    order: 3;
     min-height: 40px;
     margin: 0;
     flex-basis: 100%;
@@ -1792,15 +1790,11 @@ loadTrip()
 @media (prefers-reduced-motion: reduce) {
 
   .skeleton,
-  .stamp-enter-active,
   .pass-enter-active,
   .final-call .primary-action,
   .inked .stamp-ring,
   .track-fill,
-  .plane,
-  .cat-bar span,
-  .cat-body,
-  .chev {
+  .plane {
     animation: none;
     transition: none;
   }

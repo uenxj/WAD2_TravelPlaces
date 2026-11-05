@@ -34,7 +34,7 @@ function save() {
 </script>
 
 <template>
-  <li class="item" :class="{ done: item.done, optional: item.priority === 'optional', busy }">
+  <li class="item" :class="{ optional: item.priority === 'optional', busy }">
     <form v-if="editing" class="edit" @submit.prevent="save" @keydown.esc="editing = false">
       <input ref="nameInput" v-model="draft.name" class="form-control form-control-sm" maxlength="80" required
         aria-label="Item name">
@@ -54,8 +54,8 @@ function save() {
     <template v-else>
       <input :id="checkboxId" type="checkbox" class="tick" :checked="item.done"
         :disabled="busy" @change="emit('toggle')">
-      <label :for="checkboxId" class="tick-box" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="16" height="16"><path d="m5 12 5 5 9-10" /></svg>
+      <label :for="checkboxId" class="tick-box" aria-hidden="true" :title="item.done ? 'In the suitcase' : 'Not packed yet'">
+        <svg viewBox="0 0 24 24" width="13" height="13"><path d="m5 12 5 5 9-10" /></svg>
       </label>
 
       <label :for="checkboxId" class="body">
@@ -107,10 +107,11 @@ function save() {
   height: 1px;
 }
 
+/* Small "in the suitcase" mark: packing happens in the suitcase above, this list is for review. */
 .tick-box {
   flex-shrink: 0;
-  width: 26px;
-  height: 26px;
+  width: 20px;
+  height: 20px;
   display: grid;
   place-items: center;
   border: 2px solid var(--travel-accent);
@@ -168,11 +169,6 @@ function save() {
   overflow-wrap: anywhere;
 }
 
-.done .name {
-  color: var(--travel-muted);
-  text-decoration: line-through;
-  text-decoration-color: rgba(185, 221, 210, 0.6);
-}
 
 .meta {
   display: flex;
@@ -201,6 +197,9 @@ function save() {
 .tag-trip {
   background: #29473f;
   color: #cce9df;
+  /* the reason is what the user reviews, so show all of it */
+  white-space: normal;
+  border-radius: 0.6rem;
 }
 
 .actions {
