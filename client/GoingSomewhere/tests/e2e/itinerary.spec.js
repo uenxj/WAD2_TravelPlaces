@@ -80,6 +80,20 @@ test('a signed-in traveller creates a trip and finds it in My Trips', async ({ p
   await expect(page.getByTestId('trip-title')).toHaveText(name)
 })
 
+test('the trip page links to this trip\'s Budget, next to the Packing list', async ({ page }) => {
+  await signUp(page)
+  await createTrip(page, { destination: 'Singapore' })
+  const tripId = new URL(page.url()).pathname.split('/').pop()
+
+  await expect(page.getByTestId('packing-link')).toBeVisible()
+  const budget = page.getByTestId('budget-link')
+  await expect(budget).toBeVisible()
+  await expect(budget).toHaveText('Budget')
+  // Same trip id as the packing list, plus the destination's currency.
+  await expect(budget).toHaveAttribute('href', `/budget?trip=${tripId}&currency=SGD`)
+  await noHorizontalOverflow(page)
+})
+
 test('create, edit and delete an itinerary item', async ({ page }) => {
   await signUp(page)
   await createTrip(page)

@@ -13,7 +13,9 @@ const router = createRouter({
     { path: '/quiz', component: () => import('../src/views/Quiz.vue') },
     { path: '/weather', component: () => import('../src/views/Weather.vue') },
     { path: '/login', component: () => import('../src/views/Login.vue') },
-    { path: '/budget', component: () => import('../src/views/Budget.vue'), meta: { requiresAuth: true, liveSessionOnly: true } },
+    // ?currency=EUR (from the trip page) suggests the destination's currency; otherwise Budget.vue's default.
+    { path: '/budget', component: () => import('../src/views/Budget.vue'), meta: { requiresAuth: true, liveSessionOnly: true },
+      props: route => (/^[A-Z]{3}$/.test(route.query.currency) ? { destinationCurrency: route.query.currency } : {}) },
     { path: '/checklist', component: () => import('../src/views/Checklist.vue') },
     { path: '/trips/preview/:id', component: () => import('../src/views/AccountPage.vue'), meta: { requiresAuth: true } },
     // Real trips and itineraries (signed in). Without a login, /trips and /trips/new keep showing the preview pages.

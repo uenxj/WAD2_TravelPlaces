@@ -56,3 +56,10 @@ After pushing:
 4. Wait for approval before merging into `main`.
 
 **Team rules:** Work on your own branch, communicate before pushing, keep your branch updated, and never commit secrets such as API keys or passwords.
+
+## AI / LLM usage
+
+- **Budget trips (branch `feature/budget-trips`):** Budget API trip-access check and Budget link on the trip page were written with Claude Code assistance and reviewed by Seth. That change covers:
+  - the trip-membership check on the budget and expense API routes (`server/src/app.js`), sharing one rule with the checklist (`server/src/tripAccess.js`, wired up in `server/server.js`);
+  - the Budget link on the trip page (`src/views/Itinerary.vue`), and the short destination-to-currency lookup it passes on to the Budget page (`src/budget/destinationCurrency.js`, `router/index.js`, `src/views/Budget.vue`);
+  - the tests for these (`server/test/budgetAccess.test.js`, `src/budget/destinationCurrency.test.js`, and the Budget link check in `tests/e2e/itinerary.spec.js`).

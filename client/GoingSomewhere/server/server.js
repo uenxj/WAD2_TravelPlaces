@@ -18,6 +18,7 @@ const { createAuthStore, createMemoryAuthStore } = require('./src/auth/authStore
 const { mountAuth } = require('./src/auth/authRoutes');
 const { createMongoStore: createItineraryMongoStore, createLocalStore: createItineraryLocalStore } = require('./src/itinerary/itineraryStore');
 const { mountItinerary } = require('./src/itinerary/itineraryRoutes');
+const { createTripAccess } = require('./src/tripAccess');
 
 const PORT = process.env.PORT || 3000;
 const mongo = createMongo(); // one shared MongoDB connection (MONGODB_URI)
@@ -28,20 +29,18 @@ const store = process.env.MONGODB_URI
   : createStore(path.join(__dirname, 'data', 'db.json'));
 console.log(`Budget data: ${process.env.MONGODB_URI ? 'MongoDB' : 'local JSON file (server/data/db.json)'}`);
 const rates = createRateService();
-const app = createApp({ store, rates });
 
-// A real trip's checklist (a trip from the itinerary) is only for that trip's members. Other ids,
-// such as the sample trips (preview-…) and demo-trip, stay open as before.
-async function checklistAccess(req, tripId) {
-  const trip = await itineraryStore.trips.get(tripId);
-  if (!trip) return null;
-  const user = await auth.authenticate(req);
-  if (!user) return { status: 401, error: 'Please log in to continue' };
-  if (!trip.memberIds.includes(user.id)) return { status: 403, error: 'You are not in this trip.' };
-  return null;
-}
+// One rule for a trip's budget and checklist: a real trip (from the itinerary) is only for its members;
+// the sample trips (preview-…) and demo-trip stay open. itineraryStore and auth are set up further down,
+// and are only read when a request comes in.
+const tripAccess = createTripAccess({
+  trips: { get: (id) => itineraryStore.trips.get(id) },
+  authenticate: (req) => auth.authenticate(req),
+});
+const app = createApp({ store, rates, access: tripAccess });
+
 const checklistDb = createChecklistDb({ mongo });
-mountChecklist(app, { db: checklistDb, access: checklistAccess });
+mountChecklist(app, { db: checklistDb, access: tripAccess });
 checklistDb.collection().then(
   () => console.log('Checklist connected to MongoDB'),
   (err) => console.warn(`Checklist: ${err.message}${err.cause ? ` (${err.cause.message})` : ''}`),

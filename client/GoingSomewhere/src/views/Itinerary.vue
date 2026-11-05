@@ -8,6 +8,7 @@ import { itineraryApi } from '../itinerary/api.js'
 import { redirectIfSignedOut } from '../itinerary/session.js'
 import { tripDays, dateRange, longDate } from '../itinerary/dates.js'
 import { toConditionsActivity } from '../itinerary/activity.js'
+import { currencyForDestination } from '../budget/destinationCurrency.js'
 import ActivityConditions from '../components/ActivityConditions.vue'
 import ActivityCard from '../components/itinerary/ActivityCard.vue'
 import ActivityFormModal from '../components/itinerary/ActivityFormModal.vue'
@@ -48,6 +49,11 @@ const conflictCountByDay = computed(() => {
 const totalConflicts = computed(() => items.value.filter((i) => i.conflicts.length).length)
 const isOwner = (id) => trip.value?.ownerId === id
 const memberCount = computed(() => trip.value?.memberIds.length ?? 0)
+// The trip's budget; suggests the destination's currency when we know it (otherwise the Budget page's default).
+const budgetLink = computed(() => {
+  const currency = currencyForDestination(trip.value?.destination)
+  return `/budget?trip=${trip.value?._id}${currency ? `&currency=${currency}` : ''}`
+})
 
 // ---- weather module (src/weather): needs coordinates and a timezone, which the server works out ----
 const dayActivities = computed(() => dayItems.value.map(toConditionsActivity).filter(Boolean))
@@ -192,6 +198,7 @@ onBeforeUnmount(() => clearInterval(timer))
         </div>
         <div class="action-row">
           <RouterLink class="secondary-action" :to="`/checklist?trip=${trip._id}`" data-testid="packing-link">Packing list</RouterLink>
+          <RouterLink class="secondary-action" :to="budgetLink" data-testid="budget-link">Budget</RouterLink>
           <button type="button" class="secondary-action" data-testid="edit-trip-btn" @click="openEditTrip">Edit trip</button>
           <button type="button" class="primary-action" data-testid="add-item-btn" @click="openAdd()">Add activity</button>
         </div>
