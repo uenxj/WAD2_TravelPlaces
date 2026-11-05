@@ -9,18 +9,18 @@ const { mountChecklist } = require('../src/checklist/checklistRoutes');
 const { createChecklistDb } = require('../src/checklist/checklistDb');
 const logic = require('../src/checklist/checklistLogic');
 
-async function startApp(db) {
+async function startApp(db, access) {
   const app = express();
   app.use(express.json());
-  mountChecklist(app, { db });
+  mountChecklist(app, { db, access });
   const server = await new Promise((resolve) => {
     const s = app.listen(0, () => resolve(s));
   });
   const base = `http://127.0.0.1:${server.address().port}/api`;
-  const call = async (method, path, body) => {
+  const call = async (method, path, body, headers = {}) => {
     const res = await fetch(base + path, {
       method,
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...headers },
       body: typeof body === 'string' ? body : body && JSON.stringify(body),
     });
     return { status: res.status, body: res.status === 204 ? null : await res.json() };
@@ -145,5 +145,32 @@ describe('checklist API with MongoDB', { skip: !process.env.MONGODB_URI && 'MONG
     await app.call('POST', '/trips/trip-a/checklist', { name: 'Only on A' });
     const b = await app.call('GET', '/trips/trip-b/checklist');
     assert.deepEqual(b.body, []);
+  });
+
+  test('access: a private trip refuses outsiders on every route; other trips stay open', async () => {
+    // Stand-in for server.js: "private-trip" is a real trip whose only member sends x-user: ava.
+    const access = async (req, tripId) => {
+      if (tripId !== 'private-trip') return null;
+      if (!req.headers['x-user']) return { status: 401, error: 'Please log in to continue' };
+      return req.headers['x-user'] === 'ava' ? null : { status: 403, error: 'You are not in this trip.' };
+    };
+    const guarded = await startApp(db, access);
+    try {
+      const path = '/trips/private-trip/checklist';
+      const ava = { 'x-user': 'ava' };
+      const item = (await guarded.call('POST', path, { name: 'Passport' }, ava)).body;
+      assert.equal((await guarded.call('GET', path)).status, 401);
+      assert.equal((await guarded.call('GET', path, undefined, { 'x-user': 'bob' })).status, 403);
+      assert.equal((await guarded.call('POST', path, { name: 'Hat' }, { 'x-user': 'bob' })).status, 403);
+      assert.equal((await guarded.call('POST', `${path}/batch`, { items: [{ name: 'Hat', suggestionKey: 'hat' }] })).status, 401);
+      assert.equal((await guarded.call('PATCH', `/checklist/${item.id}`, { done: true }, { 'x-user': 'bob' })).status, 403);
+      assert.equal((await guarded.call('DELETE', `/checklist/${item.id}`)).status, 401);
+      assert.equal((await guarded.call('GET', path, undefined, ava)).body.length, 1); // untouched
+      assert.equal((await guarded.call('PATCH', `/checklist/${item.id}`, { done: true }, ava)).body.done, true);
+      assert.equal((await guarded.call('DELETE', `/checklist/${item.id}`, undefined, ava)).status, 204);
+      assert.equal((await guarded.call('GET', '/trips/preview-tokyo/checklist')).status, 200); // sample trip: open
+    } finally {
+      guarded.server.close();
+    }
   });
 });
