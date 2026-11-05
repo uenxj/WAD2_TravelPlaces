@@ -334,17 +334,17 @@ onBeforeUnmount(() => clearInterval(timer))
   position: relative;
   margin: 0 0 1.25rem;
   padding: 1rem 2.5rem 1rem 1rem;
-  border: 1px solid #9c854b;
+  border: 1px solid var(--travel-warn-border);
   border-radius: .75rem;
-  background: #332d22;
-  color: #ffedbf;
+  background: var(--travel-warn-bg);
+  color: var(--travel-warn-text);
   line-height: 1.6;
 }
 
 .alert-box.error {
-  border-color: #bc7c86;
-  background: #3c252c;
-  color: #ffd8dc;
+  border-color: var(--travel-danger-border);
+  background: var(--travel-danger-bg);
+  color: var(--travel-danger-text);
 }
 
 .alert-box ul {
@@ -384,7 +384,7 @@ onBeforeUnmount(() => clearInterval(timer))
   gap: .25rem;
   min-width: 100px;
   padding: .75rem 1rem;
-  border: 1px solid var(--travel-border);
+  border: 1px solid var(--travel-action-border);
   border-radius: .85rem;
   background: var(--travel-panel);
   color: var(--travel-text);
@@ -399,7 +399,7 @@ onBeforeUnmount(() => clearInterval(timer))
 
 .day-navigation button[aria-pressed='true'] {
   border-color: var(--travel-accent);
-  background: #29473f;
+  background: var(--travel-selected);
 }
 
 .badge {
@@ -409,8 +409,8 @@ onBeforeUnmount(() => clearInterval(timer))
   min-width: 1.4rem;
   padding: .1rem .4rem;
   border-radius: 999px;
-  background: #e5736b;
-  color: #fff;
+  background: var(--travel-danger);
+  color: var(--travel-on-danger);
   font-size: .75rem;
   font-style: normal;
   font-weight: 700;
@@ -448,8 +448,8 @@ onBeforeUnmount(() => clearInterval(timer))
   display: inline-flex;
   padding: .35rem .8rem;
   border-radius: 999px;
-  background: #29473f;
-  color: #cce9df;
+  background: var(--travel-selected);
+  color: var(--travel-selected-text);
   font-size: .8rem;
 }
 
@@ -507,8 +507,8 @@ onBeforeUnmount(() => clearInterval(timer))
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: #354d51;
-  color: #fff;
+  background: var(--travel-strong);
+  color: var(--travel-on-strong);
   font-size: .85rem;
 }
 
@@ -540,7 +540,7 @@ onBeforeUnmount(() => clearInterval(timer))
 }
 
 .member-message.failed {
-  color: #ffd8dc;
+  color: var(--travel-danger-text);
 }
 
 @media (max-width: 900px) {

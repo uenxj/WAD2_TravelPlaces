@@ -88,17 +88,14 @@ function submit() {
   }
 }
 
-.trip-edit-form input[type='date'] {
-  color-scheme: dark;
-}
 
 .form-error {
   margin: 0;
   padding: .75rem 1rem;
-  border: 1px solid #bc7c86;
+  border: 1px solid var(--travel-danger-border);
   border-radius: .6rem;
-  background: #3c252c;
-  color: #ffd8dc;
+  background: var(--travel-danger-bg);
+  color: var(--travel-danger-text);
 }
 
 button:disabled {

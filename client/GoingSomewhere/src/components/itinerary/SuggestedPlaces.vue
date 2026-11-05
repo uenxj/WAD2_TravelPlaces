@@ -110,10 +110,10 @@ watch(() => props.destination, () => {
 .places-error {
   margin: .8rem 0 0;
   padding: .7rem .9rem;
-  border: 1px solid #9c854b;
+  border: 1px solid var(--travel-warn-border);
   border-radius: .6rem;
-  background: #332d22;
-  color: #ffedbf;
+  background: var(--travel-warn-bg);
+  color: var(--travel-warn-text);
   font-size: .85rem;
 }
 
