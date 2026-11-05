@@ -101,6 +101,11 @@ In line with the course policy, these are the parts of the project that were wri
 | Packing recommendations: metadata-driven, itinerary-based suggestions (approach discussed with ChatGPT) | `src/checklist/catalog.js`, `recommend.js`, `tripSignals.js` | ChatGPT, Claude Code | Huong |
 | Interactive suitcase (design ideas from ChatGPT) | `components/checklist/SuitcaseStage.vue` | ChatGPT, Claude Code | Huong |
 | Checklist and recommendation tests, mock data | `server/test/checklist.test.js`, `src/checklist/*.test.js` | ChatGPT, Claude Code | Huong |
+| Trips and activities API: create/edit/delete trips and activities, invite members, trip-member access checks, storage (MongoDB or JSON file fallback) | `server/src/itinerary/itineraryRoutes.js`, `itineraryLogic.js`, `itineraryStore.js` | Claude | Yong Xuan Sam |
+| Destination lookup (Nominatim) and "Suggested places" (OpenTripMap) | `server/src/itinerary/geocode.js`, `places.js`, `src/components/itinerary/SuggestedPlaces.vue` | Claude | Yong Xuan Sam |
+| Itinerary pages and day-by-day view (trip list, new trip, activity cards and form) | `src/views/Trips.vue`, `NewTrip.vue`, `Itinerary.vue`, `src/components/itinerary/TripList.vue`, `ActivityCard.vue`, `ActivityFormModal.vue`, `NewTripForm.vue`, `EditTripModal.vue`, `ModalShell.vue`, `src/itinerary/api.js`, `dates.js`, `activity.js`, `session.js` | Claude | Yong Xuan Sam |
+| Clash detection (overlapping times, shown live in the form and blocked), duplicate-activity prompt, same name not allowed twice on one day | `src/itinerary/conflicts.js`, `duplicates.js`, `src/components/itinerary/DuplicateActivityModal.vue`, `ActivityFormModal.vue` | Claude | Yong Xuan Sam |
+| Itinerary tests (server, client unit and end-to-end) | `server/test/itinerary*.test.js`, `itineraryHelpers.js`, `itineraryPlaces.test.js`, `src/itinerary/*.test.js`, `tests/e2e/itinerary.spec.js`, `tests/e2e/itinerary-server.cjs` | Claude | Yong Xuan Sam |
 
 | Team member | AI use |
 | --- | --- |
