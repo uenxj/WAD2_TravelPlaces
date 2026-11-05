@@ -24,13 +24,13 @@ Signed-out visitors still see the sample pages (preview mode) at the same URLs.
   is disabled until the day or time is changed. (Editing an activity that already clashed only blocks changes to its day or
   time, so its title and notes can still be corrected.) The server still saves and reports clashes that slip through, such as two
   people adding at the same moment. Logic: `src/itinerary/conflicts.js`.
-- **Same activity on another day:** adding an activity that is already planned on a different day (same suggested place, or the
-  same title ignoring case and spaces) opens a prompt: move the existing one to the chosen day and time, add it again as a
+- **Same activity on another day:** adding an activity whose name is already planned on a different day (names compared ignoring
+  case and spaces; a different name always counts as a different activity, even for the same suggested place) opens a prompt: move the existing one to the chosen day and time, add it again as a
   duplicate, or go back. Logic: `src/itinerary/duplicates.js`; prompt: `components/itinerary/DuplicateActivityModal.vue`.
   Editing an existing activity never shows the prompt.
 - **Same name twice on one day:** not allowed. The form says "\"X\" is already planned on this day (10:00-12:00)" and the Add
   button stays disabled until another name or day is chosen, so the same suggested place can still be added again under a
-  different name. (Editing only blocks changing the day or name.)
+  different name. (Editing only blocks changing the day or name.) Only the name decides, in both checks.
 
 ## Hand-offs to other features
 - **Budget / packing:** a trip's `_id` is the `tripId` those features already use, so pass it to attach them to a real trip.

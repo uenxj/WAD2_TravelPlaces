@@ -15,8 +15,9 @@ test('the same title on other days is found, earliest day first, ignoring case a
   assert.deepEqual(found.map((i) => i._id), ['2', '1', '3'])
 })
 
-test('the same suggested place matches even when the title was changed', () => {
-  assert.deepEqual(findSameActivity(items, { title: 'Zoo trip', placeId: 'W2', date: '2026-12-04' }).map((i) => i._id), ['4'])
+test('only the name counts: the same suggested place under a different name is a different activity', () => {
+  assert.deepEqual(findSameActivity(items, { title: 'Zoo trip', placeId: 'W2', date: '2026-12-04' }), [])
+  assert.deepEqual(findSameActivity(items, { title: 'Zoo', placeId: 'W2', date: '2026-12-04' }).map((i) => i._id), ['4'])
 })
 
 test('a copy on the same day is not offered (that shows as a time clash instead)', () => {
