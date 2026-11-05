@@ -1,10 +1,12 @@
 <script setup>
 import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useReducedMotion } from '../composables/useReducedMotion.js'
+import { useTheme, themeColor } from '../composables/useTheme.js'
 import Globe from 'globe.gl'
 
 const globeEl = ref(null)
 const reducedMotion = useReducedMotion()
+const { theme } = useTheme()
 
 let globe = null
 let resizeObserver = null
@@ -47,12 +49,16 @@ watch(reducedMotion, () => {
     globe.arcDashAnimateTime(reducedMotion.value ? 0 : 2800).ringsData(reducedMotion.value ? [] : PLACES)
 })
 
+// The canvas is see-through, so the page colour shows behind it; only the glow follows the theme.
+// Changing the colour leaves the camera and auto-rotation as they are.
+watch(theme, () => globe?.atmosphereColor(themeColor('--travel-globe-atmosphere')))
+
 onMounted(() => {
     globe = new Globe(globeEl.value, { animateIn: !reducedMotion.value })
         .globeImageUrl(EARTH)
         .bumpImageUrl(BUMP)
         .backgroundColor('rgba(0,0,0,0)')
-        .atmosphereColor('#8ecae6')
+        .atmosphereColor(themeColor('--travel-globe-atmosphere'))
         .atmosphereAltitude(0.25)
 
         .arcsData(ROUTES)
@@ -138,9 +144,9 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .landing-page {
-    --landing-background: #101a2e;
-    --landing-text: #f5f5f3;
-    --landing-muted: #bdc8d8;
+    --landing-background: var(--travel-bg);
+    --landing-text: var(--travel-text);
+    --landing-muted: var(--travel-muted);
     flex: 1;
     display: flex;
     flex-direction: column;

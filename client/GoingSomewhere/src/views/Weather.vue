@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import ActivityConditions from '../components/ActivityConditions.vue'
+import PlaneLoader from '../components/PlaneLoader.vue'
 import { localDate } from '../weather/conditions.js'
 import { searchLocations } from '../weather/api.js'
 import { DESTINATIONS } from '../data/destinations.js'
@@ -52,6 +53,7 @@ function choose(value) { location.value = value; matches.value = []; searchMessa
           <label for="weather-city">Search a city<input id="weather-city" v-model="query" type="search" placeholder="e.g. Kyoto, Japan" minlength="2" required /></label>
           <button class="secondary-action" :disabled="searching" type="submit">{{ searching ? 'Searching…' : 'Find location' }}</button>
         </form>
+        <PlaneLoader v-if="searching" compact class="mt-3" label="Searching locations…" />
         <p v-if="searchMessage" role="status" class="muted-copy mt-3">{{ searchMessage }}</p>
         <ul v-if="matches.length" class="location-results" aria-label="Matching locations">
           <li v-for="match in matches" :key="match.id"><button type="button" @click="choose(match)">{{ match.name }} · {{ match.region }} · {{ match.country }}</button></li>
@@ -87,14 +89,13 @@ function choose(value) { location.value = value; matches.value = []; searchMessa
 .weather-layout { display: grid; grid-template-columns: minmax(250px, .8fr) minmax(0, 1.8fr); gap: 1.5rem; align-items: start; }
 .weather-controls { padding: 1.5rem; }
 .weather-controls h2 { font-size: 1.3rem; margin-bottom: 1.25rem; }
-.weather-controls input, .weather-controls select { color-scheme: dark; }
 .weather-controls input::placeholder { color: var(--travel-muted); opacity: 1; }
 .time-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
 .quick-locations { display: flex; flex-wrap: wrap; gap: .5rem; margin: 1.25rem 0; }
 .quick-locations button { font-size: .8rem; padding: .4rem .7rem; }
 .selected-location { line-height: 1.7; font-size: .9rem; overflow-wrap: anywhere; }
 .location-results { padding: 0; margin: 1rem 0; list-style: none; }
-.location-results button { width: 100%; background: var(--travel-bg); color: var(--travel-text); border: 1px solid var(--travel-border); padding: .7rem; text-align: left; border-radius: .5rem; margin-bottom: .4rem; }
+.location-results button { width: 100%; background: var(--travel-bg); color: var(--travel-text); border: 1px solid var(--travel-action-border); padding: .7rem; text-align: left; border-radius: .5rem; margin-bottom: .4rem; }
 .weather-main { min-width: 0; }
 .ui-notice p { margin-top: .65rem; }
 @media (max-width: 900px) { .weather-layout { grid-template-columns: 1fr; } }

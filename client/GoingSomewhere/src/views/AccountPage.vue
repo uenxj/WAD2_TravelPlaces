@@ -63,7 +63,7 @@ const shortDate = date => new Intl.DateTimeFormat('en', { month: 'short', day: '
     <template v-if="previewMode && tripDetail">
       <BackLink to="/trips">Back to My Trips</BackLink>
       <div class="page-top mt-4">
-        <div><p class="eyebrow">Sample group trip</p><h1 class="page-heading">{{ selectedTrip.name }}</h1><p class="muted-copy">{{ selectedTrip.place }} · {{ selectedTrip.dates }} · {{ selectedTrip.members }}</p></div>
+        <div><h1 class="page-heading">{{ selectedTrip.name }}</h1><p class="muted-copy">{{ selectedTrip.place }} · {{ selectedTrip.dates }} · {{ selectedTrip.members }}</p></div>
         <span class="sample-badge">Preview trip</span>
       </div>
       <nav class="trip-tabs" aria-label="Trip sections">
@@ -119,7 +119,7 @@ const shortDate = date => new Intl.DateTimeFormat('en', { month: 'short', day: '
     </template>
     <template v-else>
       <div class="page-top">
-        <div><p class="eyebrow">{{ route.path === '/trips' ? 'Your next adventures' : 'Your travel space' }}</p><h1 class="page-heading">{{ title }}</h1></div>
+        <div><h1 class="page-heading">{{ title }}</h1></div>
       </div>
       <form v-if="route.path === '/trips/new'" class="surface form-stack trip-form" @submit.prevent>
         <label for="trip-name">Trip name<input id="trip-name" v-model="tripName" placeholder="Our next adventure" required /></label>
@@ -152,27 +152,26 @@ const shortDate = date => new Intl.DateTimeFormat('en', { month: 'short', day: '
 </template>
 <style scoped>
 .itinerary-page { position: relative; isolation: isolate; }
-.itinerary-page .surface { background: rgb(25 39 61 / .94); }
+.itinerary-page .surface { background: rgb(var(--travel-panel-rgb) / .94); }
 .atmosphere-caption { margin-bottom: 1.1rem; }
 .atmosphere-label { color: var(--travel-accent); font-size: .85rem; }
 .atmosphere-label span { color: var(--travel-muted); font-size: .75rem; }
 .page-top { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 2rem; }
 .trip-form, .profile-panel { max-width: 650px; }
-.trip-form input[type="date"] { color-scheme: dark; }
 button:disabled { opacity: .65; cursor: not-allowed; }
 .trip-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem; }
 .trip-card > img { display: block; width: 100%; height: 220px; object-fit: cover; }
 .trip-card-body { padding: 1.5rem; background: var(--travel-panel); }
 .trip-card h2 { margin-top: 1rem; font-size: 1.5rem; }
 .card-labels, .card-footer-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; }
-.sample-badge { display: inline-flex; padding: .35rem .8rem; border-radius: 999px; background: #29473f; color: #cce9df; font-size: .8rem; }
+.sample-badge { display: inline-flex; padding: .35rem .8rem; border-radius: 999px; background: var(--travel-selected); color: var(--travel-selected-text); font-size: .8rem; }
 .trip-tabs { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1.5rem; }
-.trip-tabs button { padding: .7rem 1.3rem; border: 1px solid var(--travel-border); border-radius: 999px; background: transparent; color: var(--travel-text); }
-.trip-tabs button[aria-pressed="true"] { background: #354d51; border-color: var(--travel-accent); }
+.trip-tabs button { padding: .7rem 1.3rem; border: 1px solid var(--travel-action-border); border-radius: 999px; background: transparent; color: var(--travel-text); }
+.trip-tabs button[aria-pressed="true"] { background: var(--travel-strong); border-color: var(--travel-accent); }
 .day-navigation { display: flex; flex-wrap: wrap; gap: .6rem; margin-bottom: 1.25rem; }
-.day-navigation button { display: grid; gap: .25rem; min-width: 100px; padding: .75rem 1rem; border: 1px solid var(--travel-border); border-radius: .85rem; background: var(--travel-panel); color: var(--travel-text); text-align: left; }
+.day-navigation button { display: grid; gap: .25rem; min-width: 100px; padding: .75rem 1rem; border: 1px solid var(--travel-action-border); border-radius: .85rem; background: var(--travel-panel); color: var(--travel-text); text-align: left; }
 .day-navigation button span { font-size: .8rem; color: var(--travel-muted); }
-.day-navigation button[aria-pressed="true"] { border-color: var(--travel-accent); background: #29473f; }
+.day-navigation button[aria-pressed="true"] { border-color: var(--travel-accent); background: var(--travel-selected); }
 .day-heading { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem; }
 .day-heading h2 { font-size: clamp(1.5rem, 3vw, 2rem); }
 .day-heading p:last-child { margin: .5rem 0 0; }
@@ -184,16 +183,15 @@ button:disabled { opacity: .65; cursor: not-allowed; }
 .activity-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem 1rem; }
 .activity-heading h3 { font-size: 1.1rem; margin: 0; }
 .activity-description { font-size: .9rem; margin: .5rem 0 1rem; }
-.activity-edit-button { margin-top: .75rem; padding: .3rem .7rem; border: 1px solid var(--travel-border); border-radius: 999px; background: transparent; color: var(--travel-muted); font-size: .8rem; }
+.activity-edit-button { margin-top: .75rem; padding: .3rem .7rem; border: 1px solid var(--travel-action-border); border-radius: 999px; background: transparent; color: var(--travel-muted); font-size: .8rem; }
 .activity-editor { margin-top: 1rem; max-width: 500px; padding: 1rem; border: 1px solid var(--travel-border); border-radius: .75rem; }
 .activity-time-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
-.activity-editor input { color-scheme: dark; }
 .activity-editor .action-row button { font-size: .85rem; padding: .5rem 1rem; }
 .sample-note { font-size: .8rem; }
 @media (max-width: 500px) { .activities .weather-activity { gap: .8rem; padding: 1rem; } .day-navigation button { min-width: 85px; flex: 1; } }
 .packing-list { padding-left: 1.25rem; line-height: 2.5; }
 .member-row { display: flex; align-items: center; gap: 1rem; padding: .75rem 0; }
-.avatar { display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: #354d51; color: #fff; }
+.avatar { display: inline-grid; place-items: center; width: 40px; height: 40px; border-radius: 50%; background: var(--travel-strong); color: var(--travel-on-strong); }
 .avatar.large { width: 72px; height: 72px; font-size: 2rem; }
 @media (max-width: 700px) { .trip-grid { grid-template-columns: 1fr; } }
 </style>

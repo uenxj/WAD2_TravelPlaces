@@ -34,7 +34,7 @@ function save() {
 </script>
 
 <template>
-  <li class="item" :class="{ done: item.done, optional: item.priority === 'optional', busy }">
+  <li class="item" :class="{ optional: item.priority === 'optional', busy }">
     <form v-if="editing" class="edit" @submit.prevent="save" @keydown.esc="editing = false">
       <input ref="nameInput" v-model="draft.name" class="form-control form-control-sm" maxlength="80" required
         aria-label="Item name">
@@ -54,8 +54,8 @@ function save() {
     <template v-else>
       <input :id="checkboxId" type="checkbox" class="tick" :checked="item.done"
         :disabled="busy" @change="emit('toggle')">
-      <label :for="checkboxId" class="tick-box" aria-hidden="true">
-        <svg viewBox="0 0 24 24" width="16" height="16"><path d="m5 12 5 5 9-10" /></svg>
+      <label :for="checkboxId" class="tick-box" aria-hidden="true" :title="item.done ? 'In the suitcase' : 'Not packed yet'">
+        <svg viewBox="0 0 24 24" width="13" height="13"><path d="m5 12 5 5 9-10" /></svg>
       </label>
 
       <label :for="checkboxId" class="body">
@@ -107,10 +107,11 @@ function save() {
   height: 1px;
 }
 
+/* Small "in the suitcase" mark: packing happens in the suitcase above, this list is for review. */
 .tick-box {
   flex-shrink: 0;
-  width: 26px;
-  height: 26px;
+  width: 20px;
+  height: 20px;
   display: grid;
   place-items: center;
   border: 2px solid var(--travel-accent);
@@ -151,7 +152,7 @@ function save() {
 }
 
 .tick:focus-visible+.tick-box {
-  outline: 3px solid #8ecae6;
+  outline: 3px solid var(--travel-focus);
   outline-offset: 3px;
 }
 
@@ -168,11 +169,6 @@ function save() {
   overflow-wrap: anywhere;
 }
 
-.done .name {
-  color: var(--travel-muted);
-  text-decoration: line-through;
-  text-decoration-color: rgba(185, 221, 210, 0.6);
-}
 
 .meta {
   display: flex;
@@ -199,8 +195,11 @@ function save() {
 
 /* Same badge colours as the team's .sample-badge */
 .tag-trip {
-  background: #29473f;
-  color: #cce9df;
+  background: var(--travel-selected);
+  color: var(--travel-selected-text);
+  /* the reason is what the user reviews, so show all of it */
+  white-space: normal;
+  border-radius: 0.6rem;
 }
 
 .actions {
@@ -228,13 +227,13 @@ function save() {
 }
 
 .icon-btn:hover:not(:disabled) {
-  background: #354d51;
+  background: var(--travel-strong);
   color: var(--travel-text);
 }
 
 .icon-btn.danger:hover:not(:disabled) {
-  background: #3a2328;
-  color: #f0a597;
+  background: var(--travel-error-bg);
+  color: var(--travel-error-text);
 }
 
 .edit {
@@ -256,8 +255,8 @@ function save() {
 
 .form-control,
 .form-select {
-  --bs-form-select-bg-img: url("data:image/svg+xml,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3e%3cpath fill=%27none%27 stroke=%27%23bdc8d8%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27 stroke-width=%272%27 d=%27m2 5 6 6 6-6%27/%3e%3c/svg%3e");
-  border: 1px solid var(--travel-border);
+  --bs-form-select-bg-img: var(--travel-select-arrow);
+  border: 1px solid var(--travel-action-border);
   border-radius: 0.6rem;
   background-color: var(--travel-bg);
   color: var(--travel-text);

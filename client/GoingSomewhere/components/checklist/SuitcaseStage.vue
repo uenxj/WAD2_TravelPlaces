@@ -2,7 +2,8 @@
 // Flat-lay suitcase seen from above: lid (top) and base (bottom), each with compartments.
 // Every checklist item is a picture. Unpacked items lie around the case; packed ones sit in
 // their compartment slot, and empty slots show a faint outline of what still belongs there.
-// Tap an item (or drag it in / out) to pack or unpack it. At 100% the lid folds shut.
+// Tap an item (or drag it in / out) to pack or unpack it. The lid folds shut once everything is
+// packed and the final check is done; until then it stays open so the list can still be reviewed.
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { CATEGORIES } from '../../src/checklist/catalog.js'
 import { artUrl } from '../../src/checklist/itemArtUrls.js'
@@ -39,7 +40,7 @@ onBeforeUnmount(() => observer?.disconnect())
 const mobile = computed(() => width.value < 640)
 const tok = computed(() => (mobile.value ? 38 : 46)) // size of items lying outside
 
-const closed = computed(() => props.items.length > 0 && props.items.every((i) => i.done))
+const closed = computed(() => props.cleared && props.items.length > 0 && props.items.every((i) => i.done))
 
 // Lid and base are the same size so the lid can fold exactly over the base.
 // Once closed, the base moves to the top and the panel shrinks to fit (after the lid has folded).
@@ -213,7 +214,7 @@ function ghostStyle(item) {
   <section class="suitcase-panel" aria-labelledby="suitcase-title" data-testid="suitcase">
     <h2 id="suitcase-title" class="sp-title">Your suitcase</h2>
 
-    <div ref="stage" class="stage" :class="{ closed, cleared: closed && cleared, dragging: !!drag }"
+    <div ref="stage" class="stage" :class="{ closed, dragging: !!drag }"
       :style="{ height: geo.height + 'px' }" @pointermove="onMove">
 
       <!-- lid: inside face (open) and outside face (shown once it folds shut) -->
@@ -253,7 +254,8 @@ function ghostStyle(item) {
       </button>
 
       <p class="stage-hint" aria-hidden="true">
-        <template v-if="closed">{{ cleared ? 'Tagged and cleared. Ready to fly!' : 'All packed. Lid closed, one final check to go.' }}</template>
+        <template v-if="closed">Tagged and cleared. Ready to fly!</template>
+        <template v-else-if="items.every((i) => i.done)">All in. Review it, then do the final check to close the lid</template>
         <template v-else>{{ mobile ? 'Tap an item to pack it' : 'Tap an item, or drag it into the case' }}</template>
       </p>
     </div>
@@ -279,15 +281,20 @@ function ghostStyle(item) {
    Closing: the lid folds first (≈1.4 s), then the panel shrinks to the closed case.
    Opening: the panel grows straight away while the lid unfolds. */
 .stage {
+  /* The suitcase is an object, so it keeps its own teal colours in both themes; only the stage
+     behind it follows the theme. Anything drawn ON the case uses these, not the page variables. */
+  --case-mint: #b9ddd2;
+  --case-text: #f5f5f3;
+  --case-ink: #101a2e;
   position: relative;
   overflow: hidden;
   border-radius: 1rem;
   perspective: 1600px;
   transition: height 0.6s ease;
   background:
-    radial-gradient(ellipse at 50% 55%, rgba(185, 221, 210, 0.09), transparent 65%),
+    radial-gradient(ellipse at 50% 55%, rgb(var(--travel-accent-rgb) / 0.09), transparent 65%),
     repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.018) 0 2px, transparent 2px 9px),
-    #142036;
+    var(--travel-stage);
   user-select: none;
 }
 
@@ -411,7 +418,7 @@ function ghostStyle(item) {
   top: 44%;
   width: 90px;
   height: 18px;
-  border: 5px solid #b9ddd2;
+  border: 5px solid var(--case-mint);
   border-radius: 12px;
   transform: translateX(-50%);
   opacity: 0.85;
@@ -431,10 +438,10 @@ function ghostStyle(item) {
   right: 10%;
   bottom: 14%;
   padding: 0.15rem 0.6rem;
-  border: 2px solid #101a2e;
+  border: 2px solid var(--case-ink);
   border-radius: 999px;
-  background: #b9ddd2;
-  color: #101a2e;
+  background: var(--case-mint);
+  color: var(--case-ink);
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -451,7 +458,7 @@ function ghostStyle(item) {
   padding: 0.3rem 0.6rem;
   border-radius: 6px;
   background: #f2c879;
-  color: #101a2e;
+  color: var(--case-ink);
   font-weight: 800;
   letter-spacing: 0.08em;
   line-height: 1.1;
@@ -467,7 +474,7 @@ function ghostStyle(item) {
   text-transform: uppercase;
 }
 
-.cleared .tag {
+.closed .tag {
   opacity: 1;
   animation: swing 1.6s ease-out 1.3s both;
 }
@@ -535,12 +542,12 @@ function ghostStyle(item) {
 }
 
 .zone.complete {
-  box-shadow: inset 0 0 0 2px var(--travel-accent), 0 0 18px rgba(185, 221, 210, 0.25);
+  box-shadow: inset 0 0 0 2px var(--case-mint), 0 0 18px rgba(185, 221, 210, 0.25);
 }
 
 .zone.complete .zl,
 .zone.complete .zc {
-  color: var(--travel-accent);
+  color: var(--case-mint);
 }
 
 .ok {
@@ -548,9 +555,9 @@ function ghostStyle(item) {
   right: 8px;
   bottom: 6px;
   padding: 0 0.45rem;
-  border: 2px solid var(--travel-accent);
+  border: 2px solid var(--case-mint);
   border-radius: 4px;
-  color: var(--travel-accent);
+  color: var(--case-mint);
   font-size: 0.62rem;
   font-weight: 800;
   letter-spacing: 0.1em;
@@ -610,8 +617,10 @@ function ghostStyle(item) {
 }
 
 .token:focus-visible {
-  outline: 2px solid #8ecae6;
+  outline: 2px solid var(--travel-focus);
   outline-offset: 2px;
+  /* Light theme: a cream halo keeps the ring visible on the dark case as well as on the cream stage. */
+  box-shadow: 0 0 0 4px var(--travel-focus-halo);
 }
 
 .token.held {
@@ -634,7 +643,7 @@ function ghostStyle(item) {
   padding: 0.2rem 0.5rem;
   border-radius: 6px;
   background: #0b1424;
-  color: var(--travel-text);
+  color: var(--case-text);
   font-size: 0.72rem;
   white-space: nowrap;
   opacity: 0;
@@ -685,7 +694,7 @@ function ghostStyle(item) {
     transition: none;
   }
 
-  .cleared .tag {
+  .closed .tag {
     animation: none;
     transform: rotate(14deg);
   }

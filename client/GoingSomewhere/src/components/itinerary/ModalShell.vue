@@ -46,7 +46,7 @@ onBeforeUnmount(() => {
   overflow-y: auto;
   overscroll-behavior: contain;
 }
-.trip-dialog::backdrop { background: rgb(5 10 20 / .72); }
+.trip-dialog::backdrop { background: var(--travel-backdrop); }
 .modal-panel { width: 100%; }
 
 .modal-head {

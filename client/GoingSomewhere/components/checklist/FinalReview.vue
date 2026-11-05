@@ -94,7 +94,7 @@ onBeforeUnmount(() => {
   display: grid;
   place-items: center;
   padding: 1rem;
-  background: rgba(6, 11, 22, 0.78);
+  background: var(--travel-backdrop-strong);
   backdrop-filter: blur(4px);
   overflow-y: auto;
 }
@@ -135,7 +135,7 @@ onBeforeUnmount(() => {
   margin-bottom: 0.6rem;
   height: 4px;
   border-radius: 2px;
-  background: #2a3a52;
+  background: var(--travel-track);
   overflow: hidden;
 }
 
@@ -183,7 +183,7 @@ onBeforeUnmount(() => {
 }
 
 .fr-all:hover {
-  background: #24403f;
+  background: var(--travel-selected-deep);
 }
 
 /* Items already packed on the list: a compact confirmed summary */
@@ -199,8 +199,8 @@ onBeforeUnmount(() => {
 .fr-bag li {
   padding: 0.25rem 0.65rem;
   border-radius: 999px;
-  background: #24403f;
-  color: #cce9df;
+  background: var(--travel-selected-deep);
+  color: var(--travel-selected-text);
   font-size: 0.8rem;
 }
 
@@ -218,9 +218,9 @@ onBeforeUnmount(() => {
   gap: 0.75rem;
   width: 100%;
   padding: 0.65rem 0.85rem;
-  border: 1px solid var(--travel-border);
+  border: 1px solid var(--travel-action-border);
   border-radius: 0.75rem;
-  background: rgba(16, 26, 46, 0.5);
+  background: rgb(var(--travel-bg-rgb) / 0.5);
   color: var(--travel-text);
   text-align: left;
   transition: border-color 0.15s ease, background 0.15s ease;
@@ -232,7 +232,7 @@ onBeforeUnmount(() => {
 
 .fr-check.on {
   border-color: var(--travel-accent);
-  background: #24403f;
+  background: var(--travel-selected-deep);
 }
 
 .fr-box {
@@ -247,7 +247,7 @@ onBeforeUnmount(() => {
 
 .fr-box svg {
   fill: none;
-  stroke: #101a2e;
+  stroke: var(--travel-on-accent);
   stroke-width: 3;
   stroke-linecap: round;
   stroke-linejoin: round;

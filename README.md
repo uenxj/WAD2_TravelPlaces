@@ -81,6 +81,7 @@ Run from `client/GoingSomewhere`.
 | `pnpm test:itinerary` | Trips, items, conflict detection, places and weather checks |
 | `pnpm test:checklist` | Checklist logic, recommendations, trip access |
 | `pnpm test:weather` | Weather module |
+| `pnpm test:guess-country` | Country Guessing Game game flow logic |
 | `pnpm test:e2e` | Browser tests with Playwright on desktop (1440 wide) and mobile (375 wide) sizes |
 
 The unit suites use Node's built-in test runner and do not need a database. For the browser tests, install the browser once with `pnpm exec playwright install chromium`. The tests start their own test servers and the dev server.
@@ -94,13 +95,16 @@ In line with the course policy, these are the parts of the project that were wri
 | Budget planner (currency conversion, budget warnings, API, tests) | `server/src/app.js`, `budgetLogic.js`, `src/views/Budget.vue`, tests | Claude | Seth |
 | Login, sign-up and accounts backend and front-end wiring (PR #16) | `server/src/auth/`, `src/services/auth.js`, `src/views/Login.vue`, `server/test/auth.test.js` | Claude | Seth |
 | Budget linked to real trips: trip-member access check, Budget link on the trip page, destination currency lookup (PR #25) | `server/src/tripAccess.js`, `server/src/app.js`, `src/budget/destinationCurrency.js`, `src/views/Itinerary.vue`, `server/test/budgetAccess.test.js` | Claude Code | Seth |
+| Country Guessing Game (game flow & logic: timer, hints, attempts, streaks, API), tests | `src/views/Play.vue`, `src/data/countries.js`, `src/tests/e2e/guess-country.spec.js` for E2E testing | Claude | Angeline |
+ Light/dark theme (tokens, toggle, colour replacement) and its theme test | `src/styles/app.css`, `src/composables/useTheme.js`, `src/components/AppHeader.vue`, `index.html`, colour values in the page and component styles, `tests/e2e/theme.spec.js` | Claude Code | Seth |
+| Packing recommendations: metadata-driven, itinerary-based suggestions (approach discussed with ChatGPT) | `src/checklist/catalog.js`, `recommend.js`, `tripSignals.js` | ChatGPT, Claude Code | Huong |
+| Interactive suitcase (design ideas from ChatGPT) | `components/checklist/SuitcaseStage.vue` | ChatGPT, Claude Code | Huong |
+| Checklist and recommendation tests, mock data | `server/test/checklist.test.js`, `src/checklist/*.test.js` | ChatGPT, Claude Code | Huong |
 
 | Team member | AI use |
 | --- | --- |
 | Yong Xuan Sam (itinerary) | <fill in> |
 | Charlene (weather) | <fill in> |
-| Huong (checklist) | <fill in> |
-| Angeline | <fill in> |
 | Xuan | <fill in> |
 
 ## 6. Working on the project (team rules)

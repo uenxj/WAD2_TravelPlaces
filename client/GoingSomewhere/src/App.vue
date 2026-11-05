@@ -39,16 +39,16 @@ function exitPreview() {
   flex-wrap: wrap;
   gap: .5rem 1.5rem;
   padding: .65rem 5%;
-  background: #274840;
-  color: #fff;
+  background: var(--travel-banner-bg);
+  color: var(--travel-on-primary);
   font-size: .85rem;
 }
 
 .preview-banner button {
-  border: 1px solid #b9ddd2;
+  border: 1px solid var(--travel-banner-border);
   border-radius: 999px;
   background: transparent;
-  color: #fff;
+  color: var(--travel-on-primary);
   padding: .3rem .8rem;
 }
 

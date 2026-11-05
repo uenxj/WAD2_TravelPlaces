@@ -50,9 +50,10 @@ async function psiFor(activity, ahead, now, refresh) {
 export async function searchLocations(name) {
   if (name.trim().length < 2) return []
   const { data } = await request('https://geocoding-api.open-meteo.com/v1/search', { name: name.trim(), count: 6, language: 'en', format: 'json' }, 24 * 60 * MINUTE)
-  return (data.results ?? []).filter(location => location.timezone).map(location => ({
+  return (data.results ?? []).filter(location => location.timezone && isNumber(location.latitude) && Math.abs(location.latitude) <= 90 && isNumber(location.longitude) && Math.abs(location.longitude) <= 180).map(location => ({
     id: location.id, name: location.name, region: location.admin1, country: location.country,
     latitude: location.latitude, longitude: location.longitude, timezone: location.timezone,
+    scope: /^PCL/.test(location.feature_code || '') ? 'country' : 'place',
   }))
 }
 

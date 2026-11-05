@@ -38,3 +38,17 @@ pnpm test:itinerary                      # server + client unit tests, no databa
 MONGODB_URI=... pnpm test:itinerary      # also runs the real-MongoDB suite (uses a throwaway database)
 pnpm exec playwright test tests/e2e/itinerary.spec.js
 ```
+
+## Destination lookup recovery
+
+Country, region and city names are accepted. Trip creation and destination edits use Nominatim; if it fails or returns unusable coordinates/timezone, the server tries Open-Meteo geocoding. Empty/failed lookups are not cached. Exact country matches take precedence over towns with the same name in backup results. `GEOCODE_DISABLED=true` disables both providers.
+
+A saved trip with missing coordinates or timezone automatically attempts `POST /api/trips/:tripId/location` when its Itinerary opens. The endpoint requires trip membership, updates only location metadata, and leaves details/activities intact. If both lookups fail, the page offers **Retry location** and **Edit trip**. Editing also repairs older trips that have coordinates but no timezone.
+
+`destinationScope: 'country'` identifies representative country coordinates. The day summary explains this and suggests choosing a city for local conditions; these coordinates do not describe the weather everywhere in a country. Activities with their own coordinates continue to use their own locations.
+
+### Destination picker
+
+Create Trip and Edit Trip share an accessible city/country autocomplete powered by the existing Open-Meteo location search. Suggestions include the region and country to distinguish names. Selecting a suggestion submits `destinationLocation` with its matching label, coordinates, IANA timezone and country/place scope. The server validates the selection and saves these fields directly without repeating the text lookup. Changing the destination text clears the selection; free-text creation/editing still works if search is unavailable, using the provider fallback described above.
+
+Older backend processes must restart after pulling this change. A missing location-recovery route now produces a recovery instruction rather than a raw “Request failed (404)” message. Frontend and backend changes should be deployed together.
