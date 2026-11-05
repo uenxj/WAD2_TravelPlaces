@@ -18,6 +18,15 @@ Signed-out visitors still see the sample pages (preview mode) at the same URLs.
 - `OPENTRIPMAP_KEY` (in `server/.env`, and in the Render environment) powers "Suggested places". Without it that panel reports it is unavailable; the rest works.
 - `MONGODB_DNS_SERVERS` (optional, comma separated) works around networks that block SRV lookups for `mongodb+srv://`.
 
+## Clashes and repeats while adding an activity
+- **Live clash warning:** the Add/Edit activity form checks the chosen day and times against every activity already in the trip
+  (including other travellers' ones, named "added by ...") as the day, start or end time changes. It is a warning only, so the
+  activity can still be saved; the server checks again on save as before. Logic: `src/itinerary/conflicts.js`.
+- **Same activity on another day:** adding an activity that is already planned on a different day (same suggested place, or the
+  same title ignoring case and spaces) opens a prompt: move the existing one to the chosen day and time, add it again as a
+  duplicate, or go back. Logic: `src/itinerary/duplicates.js`; prompt: `components/itinerary/DuplicateActivityModal.vue`.
+  Editing an existing activity never shows the prompt, and a repeat on the same day is covered by the clash warning instead.
+
 ## Hand-offs to other features
 - **Budget / packing:** a trip's `_id` is the `tripId` those features already use, so pass it to attach them to a real trip.
 - **Weather:** every activity from `GET /api/trips/:tripId/items` carries `item.weather` (coordinates, `setting`, local start/end, timezone). `Itinerary.vue` passes it to `ActivityConditions` through `toConditionsActivity()`.
