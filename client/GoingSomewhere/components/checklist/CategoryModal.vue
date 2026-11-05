@@ -56,7 +56,7 @@ onBeforeUnmount(() => {
   display: grid;
   place-items: center;
   padding: 1rem;
-  background: rgba(6, 11, 22, 0.78);
+  background: var(--travel-backdrop-strong);
   backdrop-filter: blur(4px);
 }
 
@@ -88,7 +88,7 @@ onBeforeUnmount(() => {
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: #354d51;
+  background: var(--travel-strong);
   color: var(--travel-accent);
 }
 

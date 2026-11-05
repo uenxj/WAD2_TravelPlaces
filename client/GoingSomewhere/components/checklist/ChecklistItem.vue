@@ -152,7 +152,7 @@ function save() {
 }
 
 .tick:focus-visible+.tick-box {
-  outline: 3px solid #8ecae6;
+  outline: 3px solid var(--travel-focus);
   outline-offset: 3px;
 }
 
@@ -195,8 +195,8 @@ function save() {
 
 /* Same badge colours as the team's .sample-badge */
 .tag-trip {
-  background: #29473f;
-  color: #cce9df;
+  background: var(--travel-selected);
+  color: var(--travel-selected-text);
   /* the reason is what the user reviews, so show all of it */
   white-space: normal;
   border-radius: 0.6rem;
@@ -227,13 +227,13 @@ function save() {
 }
 
 .icon-btn:hover:not(:disabled) {
-  background: #354d51;
+  background: var(--travel-strong);
   color: var(--travel-text);
 }
 
 .icon-btn.danger:hover:not(:disabled) {
-  background: #3a2328;
-  color: #f0a597;
+  background: var(--travel-error-bg);
+  color: var(--travel-error-text);
 }
 
 .edit {
@@ -255,8 +255,8 @@ function save() {
 
 .form-control,
 .form-select {
-  --bs-form-select-bg-img: url("data:image/svg+xml,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3e%3cpath fill=%27none%27 stroke=%27%23bdc8d8%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27 stroke-width=%272%27 d=%27m2 5 6 6 6-6%27/%3e%3c/svg%3e");
-  border: 1px solid var(--travel-border);
+  --bs-form-select-bg-img: var(--travel-select-arrow);
+  border: 1px solid var(--travel-action-border);
   border-radius: 0.6rem;
   background-color: var(--travel-bg);
   color: var(--travel-text);

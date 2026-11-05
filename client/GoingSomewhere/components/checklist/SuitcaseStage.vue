@@ -281,15 +281,20 @@ function ghostStyle(item) {
    Closing: the lid folds first (≈1.4 s), then the panel shrinks to the closed case.
    Opening: the panel grows straight away while the lid unfolds. */
 .stage {
+  /* The suitcase is an object, so it keeps its own teal colours in both themes; only the stage
+     behind it follows the theme. Anything drawn ON the case uses these, not the page variables. */
+  --case-mint: #b9ddd2;
+  --case-text: #f5f5f3;
+  --case-ink: #101a2e;
   position: relative;
   overflow: hidden;
   border-radius: 1rem;
   perspective: 1600px;
   transition: height 0.6s ease;
   background:
-    radial-gradient(ellipse at 50% 55%, rgba(185, 221, 210, 0.09), transparent 65%),
+    radial-gradient(ellipse at 50% 55%, rgb(var(--travel-accent-rgb) / 0.09), transparent 65%),
     repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.018) 0 2px, transparent 2px 9px),
-    #142036;
+    var(--travel-stage);
   user-select: none;
 }
 
@@ -413,7 +418,7 @@ function ghostStyle(item) {
   top: 44%;
   width: 90px;
   height: 18px;
-  border: 5px solid #b9ddd2;
+  border: 5px solid var(--case-mint);
   border-radius: 12px;
   transform: translateX(-50%);
   opacity: 0.85;
@@ -433,10 +438,10 @@ function ghostStyle(item) {
   right: 10%;
   bottom: 14%;
   padding: 0.15rem 0.6rem;
-  border: 2px solid #101a2e;
+  border: 2px solid var(--case-ink);
   border-radius: 999px;
-  background: #b9ddd2;
-  color: #101a2e;
+  background: var(--case-mint);
+  color: var(--case-ink);
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -453,7 +458,7 @@ function ghostStyle(item) {
   padding: 0.3rem 0.6rem;
   border-radius: 6px;
   background: #f2c879;
-  color: #101a2e;
+  color: var(--case-ink);
   font-weight: 800;
   letter-spacing: 0.08em;
   line-height: 1.1;
@@ -537,12 +542,12 @@ function ghostStyle(item) {
 }
 
 .zone.complete {
-  box-shadow: inset 0 0 0 2px var(--travel-accent), 0 0 18px rgba(185, 221, 210, 0.25);
+  box-shadow: inset 0 0 0 2px var(--case-mint), 0 0 18px rgba(185, 221, 210, 0.25);
 }
 
 .zone.complete .zl,
 .zone.complete .zc {
-  color: var(--travel-accent);
+  color: var(--case-mint);
 }
 
 .ok {
@@ -550,9 +555,9 @@ function ghostStyle(item) {
   right: 8px;
   bottom: 6px;
   padding: 0 0.45rem;
-  border: 2px solid var(--travel-accent);
+  border: 2px solid var(--case-mint);
   border-radius: 4px;
-  color: var(--travel-accent);
+  color: var(--case-mint);
   font-size: 0.62rem;
   font-weight: 800;
   letter-spacing: 0.1em;
@@ -612,8 +617,10 @@ function ghostStyle(item) {
 }
 
 .token:focus-visible {
-  outline: 2px solid #8ecae6;
+  outline: 2px solid var(--travel-focus);
   outline-offset: 2px;
+  /* Light theme: a cream halo keeps the ring visible on the dark case as well as on the cream stage. */
+  box-shadow: 0 0 0 4px var(--travel-focus-halo);
 }
 
 .token.held {
@@ -636,7 +643,7 @@ function ghostStyle(item) {
   padding: 0.2rem 0.5rem;
   border-radius: 6px;
   background: #0b1424;
-  color: var(--travel-text);
+  color: var(--case-text);
   font-size: 0.72rem;
   white-space: nowrap;
   opacity: 0;

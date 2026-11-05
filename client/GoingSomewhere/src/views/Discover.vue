@@ -2,6 +2,7 @@
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useReducedMotion } from '../composables/useReducedMotion.js'
+import { useTheme, themeColor } from '../composables/useTheme.js'
 import Globe from 'globe.gl'
 import DestinationCard from '../../components/DestinationCard.vue'
 import { DESTINATIONS } from '../data/destinations.js'
@@ -12,6 +13,7 @@ const SNAP_DEGREES = 15 // how close a drop must be to count as a pin
 const DEFAULT_HINT = 'Search for a destination or drag your traveller onto a glowing pin'
 
 const reducedMotion = useReducedMotion()
+const { theme } = useTheme()
 const route = useRoute()
 const router = useRouter()
 const search = ref('')
@@ -157,12 +159,16 @@ watch(reducedMotion, () => {
   globe.ringsData(reducedMotion.value ? [] : DESTINATIONS)
 })
 
+// The canvas is see-through, so the page colour shows behind it; only the glow follows the theme.
+// Changing the colour leaves the camera, pins and auto-rotation as they are.
+watch(theme, () => globe?.atmosphereColor(themeColor('--travel-discover-atmosphere')))
+
 onMounted(() => {
   globe = new Globe(globeEl.value, { animateIn: !reducedMotion.value })
     .globeImageUrl(EARTH)
     .bumpImageUrl(BUMP)
     .backgroundColor('rgba(0,0,0,0)')
-    .atmosphereColor('#6fb3ff')
+    .atmosphereColor(themeColor('--travel-discover-atmosphere'))
     .atmosphereAltitude(0.2)
     .ringsData(reducedMotion.value ? [] : DESTINATIONS) // pulsing ring at each pin's base
     .ringColor(() => (t) => `rgba(255,210,127,${1 - t})`)
@@ -248,7 +254,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   background: var(--travel-bg);
-  color: #fff;
+  color: var(--travel-text-bright);
 }
 
 /* The two pages: intro/card first, globe second. Stacked and scrolled on phones and tablets. */
@@ -282,7 +288,7 @@ onBeforeUnmount(() => {
 
 /* Globe area */
 .globe-wrap {
-  background: radial-gradient(ellipse at center, #1c3561 0%, #101a2e 70%);
+  background: radial-gradient(ellipse at center, var(--travel-globe-glow) 0%, var(--travel-bg) 70%);
 }
 
 .globe {
@@ -304,7 +310,7 @@ onBeforeUnmount(() => {
 .hint {
   top: 84px;
   width: 90%;
-  color: #9db4cf;
+  color: var(--travel-globe-hint);
   z-index: 5;
 }
 

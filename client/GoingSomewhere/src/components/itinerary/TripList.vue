@@ -56,7 +56,7 @@ onMounted(load)
     <ul v-else class="trip-grid">
       <li v-for="trip in trips" :key="trip._id" class="trip-card stamp-card" data-testid="trip-row">
         <div class="surface trip-card-content">
-          <p class="eyebrow">{{ trip.ownerId === user?.id ? 'You organise' : 'You are invited' }}</p>
+          <p class="eyebrow">{{ trip.ownerId === user?.id ? 'Organiser' : 'Traveller' }}</p>
           <h2>
             <RouterLink :to="`/trips/${trip._id}`" data-testid="trip-link">{{ trip.name }}</RouterLink>
           </h2>
@@ -123,16 +123,16 @@ onMounted(load)
 }
 
 .danger:hover {
-  border-color: #bc7c86;
-  color: #ffd8dc;
+  border-color: var(--travel-danger-border);
+  color: var(--travel-danger-text);
 }
 
 .form-error {
   padding: .75rem 1rem;
-  border: 1px solid #bc7c86;
+  border: 1px solid var(--travel-danger-border);
   border-radius: .6rem;
-  background: #3c252c;
-  color: #ffd8dc;
+  background: var(--travel-danger-bg);
+  color: var(--travel-danger-text);
 }
 
 @media (max-width: 700px) {

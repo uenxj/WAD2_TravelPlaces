@@ -758,7 +758,7 @@ loadTrip()
   padding: clamp(1.25rem, 3vw, 2rem);
   border: 1px solid var(--travel-border);
   border-radius: 1.25rem;
-  background: linear-gradient(120deg, #19273d 0%, #1d3a3c 100%);
+  background: linear-gradient(120deg, var(--travel-panel) 0%, var(--travel-panel-alt) 100%);
 }
 
 .passport::after {
@@ -770,8 +770,8 @@ loadTrip()
   width: 230px;
   height: 230px;
   border-radius: 50%;
-  border: 1px solid rgba(185, 221, 210, 0.16);
-  box-shadow: 0 0 0 16px rgba(185, 221, 210, 0.04), 0 0 0 32px rgba(185, 221, 210, 0.03);
+  border: 1px solid rgb(var(--travel-accent-rgb) / 0.16);
+  box-shadow: 0 0 0 16px rgb(var(--travel-accent-rgb) / 0.04), 0 0 0 32px rgb(var(--travel-accent-rgb) / 0.03);
   pointer-events: none;
 }
 
@@ -817,7 +817,7 @@ loadTrip()
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--travel-border);
   border-radius: 0.75rem;
-  background: rgba(16, 26, 46, 0.55);
+  background: rgb(var(--travel-bg-rgb) / 0.55);
   text-align: center;
 }
 
@@ -837,7 +837,7 @@ loadTrip()
 }
 
 .stats dd.warn {
-  color: #f2c879;
+  color: var(--travel-gold);
 }
 
 .route {
@@ -859,7 +859,7 @@ loadTrip()
   position: relative;
   flex: 1;
   height: 4px;
-  background-image: linear-gradient(90deg, rgba(189, 200, 216, 0.45) 50%, transparent 50%);
+  background-image: linear-gradient(90deg, rgb(var(--travel-muted-rgb) / 0.45) 50%, transparent 50%);
   background-size: 12px 4px;
   border-radius: 2px;
 }
@@ -878,7 +878,7 @@ loadTrip()
   font-size: 1.3rem;
   color: var(--travel-accent);
   transition: left 0.6s ease, transform 0.6s ease;
-  text-shadow: 0 0 10px rgba(185, 221, 210, 0.55);
+  text-shadow: 0 0 10px rgb(var(--travel-accent-rgb) / 0.55);
 }
 
 .stage {
@@ -906,7 +906,7 @@ loadTrip()
 
 .form-control,
 .form-select {
-  --bs-form-select-bg-img: url("data:image/svg+xml,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3e%3cpath fill=%27none%27 stroke=%27%23bdc8d8%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27 stroke-width=%272%27 d=%27m2 5 6 6 6-6%27/%3e%3c/svg%3e");
+  --bs-form-select-bg-img: var(--travel-select-arrow);
   min-height: 46px;
   border: 1px solid var(--travel-control-border);
   border-radius: 0.6rem;
@@ -955,7 +955,7 @@ loadTrip()
   width: 46px;
   height: 46px;
   border-radius: 50%;
-  background: conic-gradient(var(--travel-accent) var(--fill), #2a3a52 0);
+  background: conic-gradient(var(--travel-accent) var(--fill), var(--travel-track) 0);
   color: var(--travel-muted);
   transition: transform 0.3s ease;
 }
@@ -965,7 +965,7 @@ loadTrip()
   position: absolute;
   inset: 3px;
   border-radius: 50%;
-  background: #1b2f3f;
+  background: var(--travel-stamp-hole);
 }
 
 .stamp-ring svg {
@@ -987,7 +987,7 @@ loadTrip()
 
 .inked .stamp-ring::before {
   inset: 0;
-  background: rgba(185, 221, 210, 0.08);
+  background: rgb(var(--travel-accent-rgb) / 0.08);
 }
 
 @keyframes ink {
@@ -1032,7 +1032,7 @@ loadTrip()
 
 .form-select.auto {
   border-color: var(--travel-accent);
-  box-shadow: 0 0 0 3px rgba(185, 221, 210, 0.15);
+  box-shadow: 0 0 0 3px rgb(var(--travel-accent-rgb) / 0.15);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -1043,7 +1043,7 @@ loadTrip()
   margin-bottom: 1.5rem;
   border: 1px solid var(--travel-accent);
   border-radius: 1.25rem;
-  background: linear-gradient(120deg, #1d3a3c 0%, #19273d 80%);
+  background: linear-gradient(120deg, var(--travel-panel-alt) 0%, var(--travel-panel) 80%);
   overflow: hidden;
 }
 
@@ -1086,7 +1086,7 @@ loadTrip()
   top: 50%;
   transform: translate(-50%, -55%);
   padding: 0 0.4rem;
-  background: #1b3240;
+  background: var(--travel-path-dot);
   color: var(--travel-accent);
   font-size: 1.2rem;
 }
@@ -1179,7 +1179,7 @@ loadTrip()
   padding: 1.5rem 1.6rem;
   border: 1px solid var(--travel-accent);
   border-radius: 1.25rem;
-  background: linear-gradient(120deg, #1d3a3c 0%, #19273d 80%);
+  background: linear-gradient(120deg, var(--travel-panel-alt) 0%, var(--travel-panel) 80%);
 }
 
 .gen-title {
@@ -1205,7 +1205,7 @@ loadTrip()
   padding: 0.7rem 0.85rem;
   border: 1px solid var(--travel-border);
   border-radius: 0.9rem;
-  background: rgba(16, 26, 46, 0.45);
+  background: rgb(var(--travel-bg-rgb) / 0.45);
   font-size: 0.85rem;
   line-height: 1.45;
   color: var(--travel-muted);
@@ -1246,7 +1246,7 @@ loadTrip()
   padding: 1.1rem 1.4rem;
   border: 1px dashed var(--travel-accent);
   border-radius: 1.25rem;
-  background: linear-gradient(120deg, #1d3a3c 0%, #19273d 80%);
+  background: linear-gradient(120deg, var(--travel-panel-alt) 0%, var(--travel-panel) 80%);
 }
 
 .final-title {
@@ -1270,11 +1270,11 @@ loadTrip()
 
   0%,
   100% {
-    box-shadow: 0 0 0 0 rgba(185, 221, 210, 0);
+    box-shadow: 0 0 0 0 rgb(var(--travel-accent-rgb) / 0);
   }
 
   50% {
-    box-shadow: 0 0 0 6px rgba(185, 221, 210, 0.15);
+    box-shadow: 0 0 0 6px rgb(var(--travel-accent-rgb) / 0.15);
   }
 }
 
@@ -1396,7 +1396,7 @@ loadTrip()
 
 .skeleton {
   height: 160px;
-  background: linear-gradient(90deg, #19273d 0%, #22344f 50%, #19273d 100%) 0 0 / 200% 100%;
+  background: linear-gradient(90deg, var(--travel-panel) 0%, var(--travel-skeleton-hi) 50%, var(--travel-panel) 100%) 0 0 / 200% 100%;
   animation: shimmer 1.4s linear infinite;
 }
 
@@ -1407,7 +1407,7 @@ loadTrip()
 }
 
 .error-sheet {
-  border-color: #c4705f;
+  border-color: var(--travel-error-border);
 }
 
 .error-sheet p {
@@ -1440,7 +1440,7 @@ loadTrip()
 /* Same pill style as the trip tabs */
 .chip {
   padding: 0.4rem 0.9rem;
-  border: 1px solid var(--travel-border);
+  border: 1px solid var(--travel-action-border);
   border-radius: 999px;
   background: transparent;
   color: var(--travel-text);
@@ -1452,7 +1452,7 @@ loadTrip()
 }
 
 .chip.on {
-  background: #354d51;
+  background: var(--travel-strong);
   border-color: var(--travel-accent);
 }
 
@@ -1509,7 +1509,7 @@ loadTrip()
 
 .s-level.top {
   border-color: var(--travel-accent);
-  background: #24403f;
+  background: var(--travel-selected-deep);
   color: var(--travel-accent);
 }
 
@@ -1577,7 +1577,7 @@ loadTrip()
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: #354d51;
+  background: var(--travel-strong);
   color: var(--travel-accent);
 }
 
@@ -1633,7 +1633,7 @@ loadTrip()
   align-items: center;
   gap: 0.75rem;
   padding: 0.65rem 0.75rem 0.65rem 1rem;
-  border: 1px solid #6c8a87;
+  border: 1px solid var(--travel-notice-border);
   border-radius: 0.75rem;
   background: var(--travel-panel);
   color: var(--travel-text);
@@ -1642,13 +1642,13 @@ loadTrip()
 
 .toast-note.milestone {
   border-color: var(--travel-accent);
-  background: linear-gradient(110deg, #10312f, #425e5c);
+  background: var(--travel-milestone-bg);
   font-weight: 600;
 }
 
 .toast-note.error {
-  border-color: #c4705f;
-  background: #3a2328;
+  border-color: var(--travel-error-border);
+  background: var(--travel-error-bg);
 }
 
 .undo {
