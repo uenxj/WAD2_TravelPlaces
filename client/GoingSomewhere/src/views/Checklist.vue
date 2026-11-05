@@ -9,6 +9,7 @@ import FinalReview from '../../components/checklist/FinalReview.vue'
 import { checklistApi } from '../checklist/api.js'
 import { itineraryApi } from '../itinerary/api.js'
 import { tripSignals } from '../checklist/tripSignals.js'
+import { SAMPLE_TRIPS } from '../data/sampleTrips.js'
 import {
   CATEGORIES, DEFAULT_KEYS, TRIP_TYPES, ITEMS,
   suggestionsFor, withoutExisting, toNewItem, guessCategory, generatePlan,
@@ -256,17 +257,30 @@ async function loadTrip() {
   itineraryActivities.value = []
   contextSignals.value = []
   weatherDays.value = 0
-  if (requestedTrip === 'demo-trip' || requestedTrip.startsWith('preview-')) return // sample trips: no itinerary on the server
-  try {
-    const [found, activities] = await Promise.all([
-      itineraryApi.getTrip(requestedTrip),
-      itineraryApi.listItems(requestedTrip),
-    ])
-    if (requestedTrip !== tripId.value) return
-    trip.value = found
-    itineraryActivities.value = activities.map((a) => ({ title: a.title, date: a.date }))
-  } catch {
-    return // Not a trip this user can open (or not signed in): the checklist still works on its own.
+  if (requestedTrip === 'demo-trip') return
+  if (requestedTrip.startsWith('preview-')) {
+    // Sample trips (preview mode): their illustrative itinerary in src/data/sampleTrips.js, in the
+    // same shape as a real trip from the itinerary API.
+    const sample = SAMPLE_TRIPS.find((t) => `preview-${t.id}` === requestedTrip)
+    if (!sample) return
+    trip.value = {
+      name: sample.name, destination: sample.place, timezone: sample.timezone,
+      center: { lat: sample.latitude, lng: sample.longitude },
+      startDate: sample.days[0].date, endDate: sample.days.at(-1).date,
+    }
+    itineraryActivities.value = sample.days.flatMap((d) => d.activities.map((a) => ({ title: a.name, date: a.date })))
+  } else {
+    try {
+      const [found, activities] = await Promise.all([
+        itineraryApi.getTrip(requestedTrip),
+        itineraryApi.listItems(requestedTrip),
+      ])
+      if (requestedTrip !== tripId.value) return
+      trip.value = found
+      itineraryActivities.value = activities.map((a) => ({ title: a.title, date: a.date }))
+    } catch {
+      return // Not a trip this user can open (or not signed in): the checklist still works on its own.
+    }
   }
   // Weather arrives a moment later; suggestions update when it does.
   let context
@@ -428,7 +442,7 @@ loadTrip()
             <p class="eyebrow">Packing passport</p>
             <component :is="embedded ? 'h2' : 'h1'" class="title">{{ embedded ? 'Packing checklist' : 'My checklist' }}</component>
             <p class="trip">Trip · <span data-testid="trip-id">{{ trip?.name ?? tripId }}</span><template
-                v-if="trip && !embedded"> · <RouterLink :to="`/trips/${trip._id}`" data-testid="back-to-trip">Back to itinerary</RouterLink></template></p>
+                v-if="trip?._id && !embedded"> · <RouterLink :to="`/trips/${trip._id}`" data-testid="back-to-trip">Back to itinerary</RouterLink></template></p>
           </div>
           <dl class="stats" v-if="status === 'ready'">
             <div>
