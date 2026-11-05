@@ -621,3 +621,28 @@ test('the same suggested place can be added again on one day under a different n
   await expect(page.getByTestId('item-modal')).toBeHidden()
   await expect(page.getByTestId('item-row')).toHaveCount(2)
 })
+
+test('a suggested place renamed before adding is a different activity: no "already planned" question on another day', async ({ page }) => {
+  await signUp(page)
+  await createTrip(page)
+  const suggestion = () => page.getByRole('listitem').filter({ hasText: 'Gardens by the Bay' }).getByRole('button', { name: 'Add' })
+  await page.getByTestId('top-places-toggle').click()
+  await expect(page.getByTestId('top-places-area')).toContainText('Singapore')
+  await suggestion().click()
+  await page.getByTestId('save-item-btn').click()
+  await expect(page.getByTestId('item-row')).toHaveCount(1)
+
+  await page.getByTestId('day-tab').nth(1).click()
+  await suggestion().click() // same place, same name, other day: asks
+  await page.getByTestId('save-item-btn').click()
+  await expect(page.getByTestId('duplicate-modal')).toBeVisible()
+  await page.getByTestId('duplicate-cancel-btn').click()
+
+  await page.getByTestId('item-title-input').fill('Evening at the gardens') // renamed: a different activity
+  await page.getByTestId('save-item-btn').click()
+  await expect(page.getByTestId('duplicate-modal')).toBeHidden()
+  await expect(page.getByTestId('item-modal')).toBeHidden()
+  await expect(page.getByTestId('item-title')).toHaveText('Evening at the gardens')
+  await page.getByTestId('day-tab').first().click()
+  await expect(page.getByTestId('item-title')).toHaveText('Gardens by the Bay') // the original is untouched
+})
