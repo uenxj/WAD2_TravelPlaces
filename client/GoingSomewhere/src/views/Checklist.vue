@@ -7,6 +7,9 @@ import EssentialsAlert from '../../components/checklist/EssentialsAlert.vue'
 import SuitcaseStage from '../../components/checklist/SuitcaseStage.vue'
 import FinalReview from '../../components/checklist/FinalReview.vue'
 import { checklistApi } from '../checklist/api.js'
+import { itineraryApi } from '../itinerary/api.js'
+import { tripSignals } from '../checklist/tripSignals.js'
+import { SAMPLE_TRIPS } from '../data/sampleTrips.js'
 import {
   CATEGORIES, DEFAULT_KEYS, TRIP_TYPES, ITEMS,
   suggestionsFor, withoutExisting, toNewItem, guessCategory, generatePlan,
@@ -20,6 +23,7 @@ const props = defineProps({
 })
 const route = useRoute()
 const tripId = computed(() => props.tripId || (typeof route.query.trip === 'string' && route.query.trip) || 'demo-trip')
+const trip = ref(null) // the real trip from the itinerary feature, when this checklist belongs to one
 
 const items = ref([])
 const status = ref('loading') // loading | ready | error
@@ -69,6 +73,7 @@ watch(tripId, () => {
   query.value = ''
   openState.value = {}
   load()
+  loadTrip()
 })
 
 // ----- progress -----
@@ -87,8 +92,11 @@ const stage = computed(() => {
 })
 
 const essentialCount = computed(() => items.value.filter((i) => i.priority === 'essential').length)
-// Airport-style code for the boarding pass: "preview-tokyo" -> "TOK"
-const tripCode = computed(() => (tripId.value.split(/[-_]/).filter(Boolean).pop() || 'TRP').slice(0, 3).toUpperCase())
+// Airport-style code for the boarding pass: destination "Tokyo, Japan" or id "preview-tokyo" -> "TOK"
+const tripCode = computed(() => {
+  const source = trip.value?.destination ?? tripId.value.split(/[-_]/).filter(Boolean).pop() ?? ''
+  return source.replace(/[^a-z]/gi, '').slice(0, 3).toUpperCase() || 'TRP'
+})
 
 // Passport stamps: one per category in use, inked once every item in it is packed.
 const stamps = computed(() =>
@@ -236,18 +244,60 @@ function toggleTripType(id) {
 }
 
 // ----- what the recommendations are based on -----
-// Today: the trip types the user picks. Later, from teammates' features once they exist
-// (see src/checklist/RECOMMENDATIONS.md):
-//   - itinerary activities -> `activities`, e.g. [{ title: 'Skiing in Niseko' }]
-//   - destination / weather -> `signals`, e.g. [{ tag: 'cold', reason: '…' }]
-// Until then these stay empty, so nothing is invented.
-const itineraryActivities = []
-const tripSignals = []
+// The trip types the user picks and, for a real trip, its itinerary activities (itinerary feature)
+// plus its destination and weather (weather module) as signals, e.g. { tag: 'cold', reason: '…' }.
+// See src/checklist/RECOMMENDATIONS.md.
+const itineraryActivities = ref([])
+const contextSignals = ref([])
+const weatherDays = ref(0) // trip days whose weather was read
+
+async function loadTrip() {
+  const requestedTrip = tripId.value
+  trip.value = null
+  itineraryActivities.value = []
+  contextSignals.value = []
+  weatherDays.value = 0
+  if (requestedTrip === 'demo-trip') return
+  if (requestedTrip.startsWith('preview-')) {
+    // Sample trips (preview mode): their illustrative itinerary in src/data/sampleTrips.js, in the
+    // same shape as a real trip from the itinerary API.
+    const sample = SAMPLE_TRIPS.find((t) => `preview-${t.id}` === requestedTrip)
+    if (!sample) return
+    trip.value = {
+      name: sample.name, destination: sample.place, timezone: sample.timezone,
+      center: { lat: sample.latitude, lng: sample.longitude },
+      startDate: sample.days[0].date, endDate: sample.days.at(-1).date,
+    }
+    itineraryActivities.value = sample.days.flatMap((d) => d.activities.map((a) => ({ title: a.name, date: a.date })))
+  } else {
+    try {
+      const [found, activities] = await Promise.all([
+        itineraryApi.getTrip(requestedTrip),
+        itineraryApi.listItems(requestedTrip),
+      ])
+      if (requestedTrip !== tripId.value) return
+      trip.value = found
+      itineraryActivities.value = activities.map((a) => ({ title: a.title, date: a.date }))
+    } catch {
+      return // Not a trip this user can open (or not signed in): the checklist still works on its own.
+    }
+  }
+  // Weather arrives a moment later; suggestions update when it does.
+  let context
+  try {
+    context = await tripSignals(trip.value)
+  } catch {
+    return // no destination or weather ideas; the rest of the suggestions still work
+  }
+  if (requestedTrip !== tripId.value) return
+  contextSignals.value = context.signals
+  weatherDays.value = context.weatherDays
+}
 
 const planInput = computed(() => ({
   tripTypes: tripTypes.value,
-  signals: tripSignals,
-  activities: itineraryActivities,
+  signals: contextSignals.value,
+  activities: itineraryActivities.value,
 }))
 
 const suggestions = computed(() => withoutExisting(suggestionsFor(planInput.value), items.value))
@@ -378,6 +428,7 @@ async function restore(item) {
 }
 
 load()
+loadTrip()
 </script>
 
 <template>
@@ -390,7 +441,8 @@ load()
           <div>
             <p class="eyebrow">Packing passport</p>
             <component :is="embedded ? 'h2' : 'h1'" class="title">{{ embedded ? 'Packing checklist' : 'My checklist' }}</component>
-            <p class="trip">Trip · <span data-testid="trip-id">{{ tripId }}</span></p>
+            <p class="trip">Trip · <span data-testid="trip-id">{{ trip?.name ?? tripId }}</span><template
+                v-if="trip?._id && !embedded"> · <RouterLink :to="`/trips/${trip._id}`" data-testid="back-to-trip">Back to itinerary</RouterLink></template></p>
           </div>
           <dl class="stats" v-if="status === 'ready'">
             <div>
@@ -592,9 +644,11 @@ load()
             </template>
             <p v-else-if="tripTypes.length" class="hint mb-0">✓ Everything suggested is already on your list.</p>
 
-            <p class="footnote">Suggestions come from the trip types you pick, plus backups for things that
-              often go wrong. Ideas from your itinerary, destination and weather will appear here once those
-              features are connected.</p>
+            <p class="footnote" data-testid="ideas-source">Suggestions come from the trip types you pick<template
+                v-if="trip">, the {{ itineraryActivities.length }} activit{{ itineraryActivities.length === 1 ? 'y' : 'ies' }}
+                in your itinerary, your destination<template v-if="weatherDays">, the weather for
+                {{ weatherDays }} day{{ weatherDays === 1 ? '' : 's' }} of the trip</template></template>, plus backups
+              for things that often go wrong.</p>
           </section>
 
           <section v-if="items.length && missingDefaults.length" class="sheet ideas mt-3">
@@ -628,7 +682,9 @@ load()
               <template v-else>✦ Generate my packing list · {{ planSize }} items</template>
             </button>
             <p class="small mt-3 mb-0">
-              {{ tripTypes.length ? `Starter essentials + everything a ${tripTypeLabel} trip needs. You can remove anything.` : 'No trip type picked: you\'ll get the starter essentials.' }}
+              {{ tripTypes.length ? `Starter essentials + everything a ${tripTypeLabel} trip needs. You can remove anything.`
+                : itineraryActivities.length || contextSignals.length ? 'Starter essentials + what your itinerary, destination and weather need. You can remove anything.'
+                : 'No trip type picked: you\'ll get the starter essentials.' }}
             </p>
             <p class="small mt-1 mb-0">
               Or <button type="button" class="link-btn" :disabled="adding" data-testid="add-defaults"
@@ -748,6 +804,10 @@ load()
   font-size: 0.85rem;
   color: var(--travel-muted);
   overflow-wrap: anywhere;
+}
+
+.trip a {
+  color: var(--travel-accent);
 }
 
 .stats {

@@ -137,8 +137,8 @@ test('verified-session integration switches the header and prefills the trip for
   await page.getByRole('button', { name: 'Tokyo Japan' }).click()
   await page.getByRole('button', { name: 'Plan a trip here' }).click()
   await expect(page.getByRole('heading', { name: 'Create a trip' })).toBeVisible()
-  await expect(page.getByLabel('Destination', { exact: true })).toHaveValue('Tokyo')
-  await expect(page.getByRole('button', { name: 'Create trip — coming soon' })).toBeDisabled()
+  await expect(page.getByLabel('Destination', { exact: true })).toHaveValue('Tokyo, Japan')
+  await expect(page.getByRole('button', { name: 'Create trip', exact: true })).toBeEnabled()
   await noHorizontalOverflow(page)
 })
 

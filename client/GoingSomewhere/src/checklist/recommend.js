@@ -5,7 +5,7 @@
 //      e.g. sunscreen: { beach: 3, hot: 3, ski: 2 }   (3 = core, 2 = recommended, 1 = nice to have)
 //   2. The trip's real context is turned into SIGNALS: { tag, reason }
 //        - trip types the user picks        (catalog.js TRIP_TYPES[].tags)
-//        - destination / weather             (from teammates' features once they exist, as { tag, reason })
+//        - destination / weather             (tripSignals.js, from the itinerary and weather features)
 //        - itinerary activities             (activitySignals below; uses the activity's own tags/type
 //                                             when the itinerary provides them, else words in its title)
 //   3. recommend() scores each item = sum over matched tags of (weight × evidence), ranks by score,

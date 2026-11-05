@@ -7,13 +7,35 @@ const logic = require('./budgetLogic');
  * store and fake rate service.
  *
  * To mount inside your team's existing server instead:
- *   app.use('/api', require('./budget-planner/src/app').createRouter({ store, rates }));
+ *   app.use('/api', require('./budget-planner/src/app').createRouter({ store, rates, access }));
+ *
+ * `access(req, tripId)` decides who may use a trip's budget (same rule as the checklist): it resolves
+ * to null when allowed, otherwise to { status, error } (401 not signed in, 403 not in the trip).
+ * Default: open, so tests and the JSON-store setup work without accounts. GET /rates is always open.
  */
-function createRouter({ store, rates }) {
+function createRouter({ store, rates, access = async () => null }) {
   const router = express.Router();
 
   // --- helpers -------------------------------------------------------------
   const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
+
+  /** True when the request may use this trip's budget; otherwise the refusal is already sent. */
+  async function allowed(req, res, tripId) {
+    const denied = await access(req, tripId);
+    if (!denied) return true;
+    res.status(denied.status).json({ error: denied.error });
+    return false;
+  }
+
+  /** The expense when it exists and the request may use its trip; otherwise a response is sent. */
+  async function allowedExpense(req, res) {
+    const existing = await store.getExpense(req.params.id);
+    if (!existing) {
+      res.status(404).json({ error: 'Expense not found' });
+      return null;
+    }
+    return (await allowed(req, res, existing.tripId)) ? existing : null;
+  }
 
   async function requireBudget(req, res) {
     const budget = await store.getBudget(req.params.tripId);
@@ -45,11 +67,13 @@ function createRouter({ store, rates }) {
 
   // --- budget --------------------------------------------------------------
   router.get('/trips/:tripId/budget', wrap(async (req, res) => {
+    if (!(await allowed(req, res, req.params.tripId))) return;
     const budget = await requireBudget(req, res);
     if (budget) res.json(budget);
   }));
 
   router.put('/trips/:tripId/budget', wrap(async (req, res) => {
+    if (!(await allowed(req, res, req.params.tripId))) return;
     const v = logic.validateBudget(req.body);
     if (!v.ok) return res.status(400).json({ error: 'Invalid budget', details: v.errors });
     res.json(await store.saveBudget(req.params.tripId, v.value));
@@ -57,6 +81,7 @@ function createRouter({ store, rates }) {
 
   // GET for the simple case; POST lets the Itinerary Planner send upcoming costs.
   const summaryHandler = wrap(async (req, res) => {
+    if (!(await allowed(req, res, req.params.tripId))) return;
     const budget = await requireBudget(req, res);
     if (!budget) return;
     const expenses = await store.listExpenses(req.params.tripId);
@@ -68,6 +93,7 @@ function createRouter({ store, rates }) {
 
   // --- expenses ------------------------------------------------------------
   router.get('/trips/:tripId/expenses', wrap(async (req, res) => {
+    if (!(await allowed(req, res, req.params.tripId))) return;
     const category = req.query.category;
     let list = await store.listExpenses(req.params.tripId);
     if (category) list = list.filter((e) => e.category.toLowerCase() === String(category).toLowerCase());
@@ -75,6 +101,7 @@ function createRouter({ store, rates }) {
   }));
 
   router.post('/trips/:tripId/expenses', wrap(async (req, res) => {
+    if (!(await allowed(req, res, req.params.tripId))) return;
     const budget = await requireBudget(req, res);
     if (!budget) return;
     const v = logic.validateExpense(req.body, budget);
@@ -93,8 +120,8 @@ function createRouter({ store, rates }) {
   }));
 
   router.put('/expenses/:id', wrap(async (req, res) => {
-    const existing = await store.getExpense(req.params.id);
-    if (!existing) return res.status(404).json({ error: 'Expense not found' });
+    const existing = await allowedExpense(req, res);
+    if (!existing) return;
     const budget = await store.getBudget(existing.tripId);
 
     const v = logic.validateExpense({ ...existing, ...req.body }, budget);
@@ -117,6 +144,7 @@ function createRouter({ store, rates }) {
   }));
 
   router.delete('/expenses/:id', wrap(async (req, res) => {
+    if (!(await allowedExpense(req, res))) return;
     const ok = await store.deleteExpense(req.params.id);
     if (!ok) return res.status(404).json({ error: 'Expense not found' });
     res.status(204).end();
@@ -132,10 +160,10 @@ function createRouter({ store, rates }) {
   return router;
 }
 
-function createApp({ store, rates }) {
+function createApp({ store, rates, access }) {
   const app = express();
   app.use(express.json({ limit: '100kb' }));
-  app.use('/api', createRouter({ store, rates }));
+  app.use('/api', createRouter({ store, rates, access }));
   app.use(express.static(path.join(__dirname, '..', '..', 'dist')));
   return app;
 }

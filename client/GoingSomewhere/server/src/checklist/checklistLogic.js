@@ -126,9 +126,6 @@ function toClient(doc) {
 }
 
 module.exports = {
-  CATEGORIES,
-  PRIORITIES,
-  SOURCES,
   isTripId,
   isItemId,
   validateNewItem,
