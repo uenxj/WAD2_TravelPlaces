@@ -2,6 +2,7 @@
 import { reactive, ref, computed, watch } from 'vue'
 import ModalShell from './ModalShell.vue'
 import { liveConflicts, addMinutes, toMinutes } from '../../itinerary/conflicts.js'
+import { findSameDayActivity, normalizeTitle } from '../../itinerary/duplicates.js'
 
 const props = defineProps({
   item: { type: Object, default: null }, // null = adding a new activity
@@ -41,11 +42,30 @@ const clashes = computed(() =>
 const timeChanged = computed(
   () => !props.item || form.date !== props.item.date || form.startTime !== props.item.startTime || form.endTime !== props.item.endTime,
 )
-const blocked = computed(() => clashes.value.length > 0 && timeChanged.value)
+const clashBlocked = computed(() => clashes.value.length > 0 && timeChanged.value)
+
+// The same activity cannot be on one day twice (same suggested place, or same title). Another day is handled by the
+// "move or duplicate" prompt after submitting. When editing, only if the day or title was changed.
+const sameDay = computed(() =>
+  findSameDayActivity(
+    props.items,
+    { title: form.title, placeId: props.item?.placeId || props.prefill?.id, date: form.date },
+    { ignoreId: props.item?._id },
+  ).map((i) => {
+    const other = props.currentUserId && i.createdBy !== props.currentUserId
+    return `"${i.title}" is already planned on this day (${i.startTime}-${i.endTime})${other ? `, added by ${i.createdByName || 'another traveller'}` : ''}.`
+  }),
+)
+const identityChanged = computed(
+  () => !props.item || form.date !== props.item.date || normalizeTitle(form.title) !== normalizeTitle(props.item.title),
+)
+const sameDayBlocked = computed(() => sameDay.value.length > 0 && identityChanged.value)
+const blocked = computed(() => clashBlocked.value || sameDayBlocked.value)
 
 function submit() {
   localError.value = ''
-  if (blocked.value) return (localError.value = 'This time clashes with another activity. Change the day or time first.')
+  if (sameDayBlocked.value) return (localError.value = 'This activity is already planned on this day. Pick a different day.')
+  if (clashBlocked.value) return (localError.value = 'This time clashes with another activity. Change the day or time first.')
   if (!form.title.trim()) return (localError.value = 'Enter a title.')
   if (form.endTime <= form.startTime) return (localError.value = 'End time must be after the start time.')
   emit('save', {
@@ -109,12 +129,20 @@ function submit() {
         <textarea id="item-notes" v-model="form.notes" rows="2" maxlength="1000" data-testid="item-notes-input"></textarea>
       </label>
 
+      <div v-if="sameDay.length" class="live-conflicts" role="status" aria-live="polite" data-testid="same-day-duplicate">
+        <strong>This activity is already on this day.</strong>
+        <ul>
+          <li v-for="(message, i) in sameDay" :key="i">{{ message }}</li>
+        </ul>
+        <span class="live-hint">{{ sameDayBlocked ? 'Pick a different day, or edit the one that is already there.' : 'It was already here before, so you can still save other changes.' }}</span>
+      </div>
+
       <div v-if="clashes.length" class="live-conflicts" role="status" aria-live="polite" data-testid="live-conflicts">
         <strong>{{ clashes.length === 1 ? 'This time clashes with another activity.' : `This time clashes with ${clashes.length} activities.` }}</strong>
         <ul>
           <li v-for="c in clashes" :key="c.itemId" data-testid="live-conflict">{{ c.message }}</li>
         </ul>
-        <span class="live-hint">{{ blocked ? 'Change the day or time to continue.' : 'It already overlapped before, so you can still save other changes.' }}</span>
+        <span class="live-hint">{{ clashBlocked ? 'Change the day or time to continue.' : 'It already overlapped before, so you can still save other changes.' }}</span>
       </div>
 
       <p v-if="localError || serverError" class="form-error" role="alert" data-testid="form-error">{{ localError || serverError }}</p>

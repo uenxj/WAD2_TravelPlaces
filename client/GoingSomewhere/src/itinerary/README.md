@@ -27,7 +27,9 @@ Signed-out visitors still see the sample pages (preview mode) at the same URLs.
 - **Same activity on another day:** adding an activity that is already planned on a different day (same suggested place, or the
   same title ignoring case and spaces) opens a prompt: move the existing one to the chosen day and time, add it again as a
   duplicate, or go back. Logic: `src/itinerary/duplicates.js`; prompt: `components/itinerary/DuplicateActivityModal.vue`.
-  Editing an existing activity never shows the prompt, and a repeat on the same day is covered by the clash warning instead.
+  Editing an existing activity never shows the prompt.
+- **Same activity twice on one day:** not allowed. The form says "\"X\" is already planned on this day (10:00-12:00)" and the Add
+  button stays disabled until another day or title is chosen. (Editing only blocks changing the day or title.)
 
 ## Hand-offs to other features
 - **Budget / packing:** a trip's `_id` is the `tripId` those features already use, so pass it to attach them to a real trip.
