@@ -68,6 +68,8 @@ export default {
             this.preview = null
             this.filter = ''
             this.editingBudget = false
+            this.form.destCurrency = this.destinationCurrency
+            this.expense.currency = this.destinationCurrency
             clearTimeout(this.previewTimer)
             this.loading = true
             await this.refresh()
