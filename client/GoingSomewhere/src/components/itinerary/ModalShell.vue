@@ -1,3 +1,20 @@
+<script>
+// More than one dialog can be open at once (the "already planned" prompt opens over the activity form), so the page
+// scroll lock is shared: the first dialog to open locks the page, and only the last one to close unlocks it.
+// (Each dialog restoring "whatever it saw when it opened" left the page stuck locked when two closed together.)
+let openDialogs = 0
+let overflowBeforeLock = ''
+function lockPageScroll() {
+  if (openDialogs++ === 0) {
+    overflowBeforeLock = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+  }
+}
+function unlockPageScroll() {
+  if (openDialogs > 0 && --openDialogs === 0) document.body.style.overflow = overflowBeforeLock
+}
+</script>
+
 <script setup>
 // Native modal behavior contains keyboard focus and makes the rest of the page inert.
 import { ref, onMounted, onBeforeUnmount } from 'vue'
@@ -6,17 +23,15 @@ defineProps({ title: { type: String, required: true }, titleId: { type: String, 
 const emit = defineEmits(['close'])
 const dialog = ref(null)
 let returnFocus
-let previousOverflow
 onMounted(() => {
   returnFocus = document.activeElement
-  previousOverflow = document.body.style.overflow
-  document.body.style.overflow = 'hidden'
+  lockPageScroll()
   dialog.value.showModal()
   dialog.value.querySelector('input, select, textarea')?.focus()
 })
 onBeforeUnmount(() => {
   dialog.value?.close()
-  document.body.style.overflow = previousOverflow
+  unlockPageScroll()
   if (returnFocus?.isConnected) returnFocus.focus({ preventScroll: true })
 })
 </script>

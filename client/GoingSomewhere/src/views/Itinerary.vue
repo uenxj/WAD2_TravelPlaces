@@ -293,7 +293,7 @@ onBeforeUnmount(() => clearInterval(timer))
       </p>
 
       <nav class="day-navigation" aria-label="Itinerary days" data-testid="day-tabs">
-        <button v-for="(d, i) in days" :key="d.date" type="button" :aria-pressed="d.date === selectedDate" data-testid="day-tab" @click="selectedDate = d.date">
+        <button v-for="(d, i) in days" :key="d.date" type="button" :class="{ 'has-conflicts': conflictCountByDay[d.date] }" :aria-pressed="d.date === selectedDate" data-testid="day-tab" @click="selectedDate = d.date">
           <strong>Day {{ i + 1 }}</strong>
           <span>{{ d.label }}</span>
           <em v-if="conflictCountByDay[d.date]" class="badge" :aria-label="`${conflictCountByDay[d.date]} with conflicts`">{{ conflictCountByDay[d.date] }}</em>
@@ -486,6 +486,10 @@ onBeforeUnmount(() => clearInterval(timer))
   cursor: pointer;
 }
 
+.day-navigation button.has-conflicts {
+  padding-right: 2.8rem; /* room for the badge in the corner */
+}
+
 .day-navigation button span {
   font-size: .8rem;
   color: var(--travel-muted);
@@ -498,8 +502,8 @@ onBeforeUnmount(() => clearInterval(timer))
 
 .badge {
   position: absolute;
-  top: -.4rem;
-  right: -.3rem;
+  top: .5rem;
+  right: .55rem;
   min-width: 1.4rem;
   padding: .1rem .4rem;
   border-radius: 999px;
