@@ -445,7 +445,7 @@ test('"Go back" keeps what was typed so another day or time can be chosen', asyn
   await expect(page.getByTestId('item-row')).toContainText('16:00')
 })
 
-test('the same activity cannot be added twice on one day, and the form says so', async ({ page }) => {
+test('an activity with the same name cannot be added twice on one day, and the form says so', async ({ page }) => {
   await signUp(page)
   await createTrip(page)
   await addItem(page, { title: 'Gardens by the Bay', start: '10:00', end: '12:00' })
@@ -453,7 +453,7 @@ test('the same activity cannot be added twice on one day, and the form says so',
   // Same title (ignoring capitals and spaces), same day, a different time: still the same activity
   await openAddForm(page, { title: ' gardens  BY the bay', start: '14:00', end: '15:00' })
   const notice = page.getByTestId('same-day-duplicate')
-  await expect(notice).toContainText('This activity is already on this day.')
+  await expect(notice).toContainText('An activity with this name is already on this day.')
   await expect(notice).toContainText('"Gardens by the Bay" is already planned on this day (10:00-12:00).')
   await expect(page.getByTestId('save-item-btn')).toBeDisabled()
   await page.getByTestId('item-title-input').press('Enter') // Enter cannot sneak it through
@@ -598,7 +598,7 @@ test('an older backend gives a useful location recovery message instead of a raw
   await expect(page.getByText('Request failed (404)', { exact: true })).toHaveCount(0)
 })
 
-test('the same suggested place cannot be added twice on one day either', async ({ page }) => {
+test('the same suggested place can be added again on one day under a different name', async ({ page }) => {
   await signUp(page)
   await createTrip(page)
   const suggestion = () => page.getByRole('listitem').filter({ hasText: 'Gardens by the Bay' }).getByRole('button', { name: 'Add' })
@@ -609,8 +609,15 @@ test('the same suggested place cannot be added twice on one day either', async (
   await expect(page.getByTestId('item-row')).toHaveCount(1)
 
   await suggestion().click()
-  await page.getByTestId('item-title-input').fill('Evening at the gardens') // renamed, but it is the same place
   await page.getByTestId('item-start-input').fill('18:00')
+  await page.getByTestId('item-end-input').fill('19:00')
+  // Same name as the first copy: blocked until it is renamed
   await expect(page.getByTestId('same-day-duplicate')).toContainText('is already planned on this day')
   await expect(page.getByTestId('save-item-btn')).toBeDisabled()
+  await page.getByTestId('item-title-input').fill('Evening at the gardens') // same place, new name
+  await expect(page.getByTestId('same-day-duplicate')).toBeHidden()
+  await expect(page.getByTestId('save-item-btn')).toBeEnabled()
+  await page.getByTestId('save-item-btn').click()
+  await expect(page.getByTestId('item-modal')).toBeHidden()
+  await expect(page.getByTestId('item-row')).toHaveCount(2)
 })

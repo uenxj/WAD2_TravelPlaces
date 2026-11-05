@@ -25,15 +25,16 @@ export function findSameActivity(items, draft) {
 }
 
 /**
- * Activities already on the draft's own day that are the same activity (same suggested place, or same title).
- * A day cannot have the same activity twice. options.ignoreId is the activity being edited, so it does not match itself.
+ * Activities already on the draft's own day with the same name (ignoring capitals and extra spaces).
+ * A day cannot have two activities with the same name. Going by the name only means the same suggested place can still be
+ * added a second time when the person gives it a different name. options.ignoreId is the activity being edited, so it does
+ * not match itself.
  */
 export function findSameDayActivity(items, draft, { ignoreId } = {}) {
   const title = normalizeTitle(draft?.title)
-  const placeId = typeof draft?.placeId === 'string' ? draft.placeId : ''
-  if (!draft?.date || (!title && !placeId)) return []
+  if (!draft?.date || !title) return []
   return items
     .filter((i) => i.date === draft.date && String(i._id) !== String(ignoreId ?? ''))
-    .filter((i) => isSame(i, title, placeId))
+    .filter((i) => normalizeTitle(i.title) === title)
     .sort((a, b) => a.startTime.localeCompare(b.startTime))
 }
