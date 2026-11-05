@@ -150,7 +150,7 @@ test('the trip owner adds a travel buddy by email', async ({ page, browser, base
   await page.getByTestId('member-input').fill(benEmail)
   await page.getByTestId('add-member-btn').click()
   await expect(page.getByTestId('member-list')).toContainText('Ben Lim')
-  await expect(page.getByTestId('member-list')).toContainText('You · organiser')
+  await expect(page.getByTestId('member-list').getByRole('listitem').filter({ hasText: 'Ava Tan' })).toContainText('Organiser')
 
   await context.close()
 })
@@ -209,6 +209,7 @@ test('the trips pages fit a phone screen', async ({ page }) => {
   await addItem(page, { title: 'A rather long activity title that has to wrap on a narrow screen without overflowing', start: '10:00', end: '12:00' })
   await noHorizontalOverflow(page)
   await page.goto('/trips')
+  await expect(page.getByTestId('trip-row')).toBeVisible()
   await noHorizontalOverflow(page)
 })
 
