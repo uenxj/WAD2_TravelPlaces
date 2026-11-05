@@ -97,12 +97,12 @@ export const TRIP_TYPES = [
   { id: 'snow', label: 'Snow & ski', emoji: '⛷', tags: ['ski', 'snow'] },
 ]
 
-/** Request body for one catalogue item. */
+/** Request body for one catalogue item. It goes straight into the suitcase (packed); the user removes what they don't need. */
 export function toNewItem(key, source, reason = null) {
   const { name, category, priority } = ITEMS[key]
   // The API stores reasons of up to 200 characters; an item with many reasons is shortened.
   const short = reason && reason.length > 200 ? reason.slice(0, 199) + '…' : reason
-  return { name, category, priority, source, reason: short, suggestionKey: key }
+  return { name, category, priority, source, reason: short, suggestionKey: key, done: true }
 }
 
 /** Signals from the trip types the user picked: each type is a preset of tags. */

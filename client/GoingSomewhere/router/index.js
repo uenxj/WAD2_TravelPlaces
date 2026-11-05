@@ -36,4 +36,10 @@ router.beforeEach((to, from) => {
   }
 })
 
+router.afterEach(to => {
+  const titles = { '/': 'Plan your next adventure', '/discover': 'Discover', '/quiz': 'Travel Preference Quiz', '/trips': 'My Trips', '/trips/new': 'Create a trip', '/budget': 'Budget Planner', '/checklist': 'Packing list', '/profile': 'Your profile', '/login': 'Log in', '/saved': 'Saved places', '/weather': 'Weather Forecast', '/play': 'Guess the Country' }
+  const title = titles[to.path] || (to.path.startsWith('/trips/') ? 'Itinerary' : 'Explore destinations')
+  document.title = `${title} · GoingSomewhere`
+})
+
 export default router

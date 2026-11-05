@@ -1,6 +1,8 @@
 <script setup>
 // "My Trips": the real trips of the signed-in user.
 import { ref, onMounted } from 'vue'
+import TrashButton from '../TrashButton.vue'
+import PlaneLoader from '../PlaneLoader.vue'
 import { useRoute, useRouter } from 'vue-router'
 import { user } from '../../services/auth.js'
 import { itineraryApi } from '../../itinerary/api.js'
@@ -41,32 +43,31 @@ onMounted(load)
   <main class="content-page">
     <div class="page-top">
       <div>
-        <p class="eyebrow">Your next adventures</p>
         <h1 class="page-heading">My Trips</h1>
-        <p class="muted-copy">All the trips you organise or join, together in one place.</p>
       </div>
-      <RouterLink class="primary-action" to="/trips/new">+ New trip</RouterLink>
     </div>
 
     <p v-if="error" class="form-error" role="alert">{{ error }}</p>
-    <p v-if="loading" class="muted-copy" role="status">Loading trips…</p>
+    <PlaneLoader v-if="loading" label="Loading trips…" data-testid="trip-loading" />
     <section v-else-if="!trips.length && !error" class="surface" data-testid="no-trips">
       <h2>No trips yet</h2>
       <p class="muted-copy">Create your first trip to start building an itinerary.</p>
       <RouterLink class="secondary-action" to="/trips/new">Create a trip</RouterLink>
     </section>
     <ul v-else class="trip-grid">
-      <li v-for="trip in trips" :key="trip._id" class="trip-card surface" data-testid="trip-row">
-        <p class="eyebrow">{{ trip.ownerId === user?.id ? 'You organise' : 'You are invited' }}</p>
-        <h2>
-          <RouterLink :to="`/trips/${trip._id}`" data-testid="trip-link">{{ trip.name }}</RouterLink>
-        </h2>
-        <p class="muted-copy">{{ trip.destination }}<br />{{ dateRange(trip.startDate, trip.endDate) }}</p>
-        <div class="card-footer-row">
-          <span class="muted-copy">{{ trip.memberIds.length }} traveller{{ trip.memberIds.length === 1 ? '' : 's' }}</span>
-          <div class="action-row">
-            <button v-if="trip.ownerId === user?.id" type="button" class="secondary-action small danger" @click="removeTrip(trip)">Delete</button>
-            <RouterLink class="secondary-action small" :to="`/trips/${trip._id}`">View trip →</RouterLink>
+      <li v-for="trip in trips" :key="trip._id" class="trip-card stamp-card" data-testid="trip-row">
+        <div class="surface trip-card-content">
+          <p class="eyebrow">{{ trip.ownerId === user?.id ? 'Organiser' : 'Traveller' }}</p>
+          <h2>
+            <RouterLink :to="`/trips/${trip._id}`" data-testid="trip-link">{{ trip.name }}</RouterLink>
+          </h2>
+          <p class="muted-copy">{{ trip.destination }}<br />{{ dateRange(trip.startDate, trip.endDate) }}</p>
+          <div class="card-footer-row">
+            <span class="muted-copy">{{ trip.memberIds.length }} traveller{{ trip.memberIds.length === 1 ? '' : 's' }}</span>
+            <div class="action-row">
+              <RouterLink class="secondary-action small" :to="`/trips/${trip._id}`">View trip →</RouterLink>
+              <TrashButton v-if="trip.ownerId === user?.id" :label="`Delete trip ${trip.name}`" @click="removeTrip(trip)" />
+            </div>
           </div>
         </div>
       </li>
@@ -92,6 +93,10 @@ onMounted(load)
   padding: 0;
   list-style: none;
 }
+
+.trip-card-content { height: 100%; padding-inline-end: .75rem; border-radius: 0; }
+
+.card-footer-row .action-row { gap: .25rem; }
 
 .trip-card h2 {
   margin: .4rem 0 .5rem;
@@ -120,17 +125,13 @@ onMounted(load)
   font-size: .9rem;
 }
 
-.danger:hover {
-  border-color: #bc7c86;
-  color: #ffd8dc;
-}
 
 .form-error {
   padding: .75rem 1rem;
-  border: 1px solid #bc7c86;
+  border: 1px solid var(--travel-danger-border);
   border-radius: .6rem;
-  background: #3c252c;
-  color: #ffd8dc;
+  background: var(--travel-danger-bg);
+  color: var(--travel-danger-text);
 }
 
 @media (max-width: 700px) {

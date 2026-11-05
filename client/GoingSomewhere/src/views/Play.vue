@@ -1,4 +1,6 @@
 <script setup>
+import BackLink from '../components/BackLink.vue'
+import PlaneLoader from '../components/PlaneLoader.vue'
 import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { COUNTRIES } from '@/data/countries.js'
@@ -20,10 +22,10 @@ const LOCATIONS = [
     { img: '/locations/iceland.jpg', country: 'Iceland', code: 'is', capital: 'Reykjavik', region: 'Europe', flag: '🇮🇸', aliases: [], clue: 'An island of volcanoes, geysers and glaciers in the North Atlantic.', population: 390000, currencies: 'Icelandic króna', languages: 'Icelandic', coords: [64.15, -21.94] },
     { img: '/locations/kazakhstan.jpg', country: 'Kazakhstan', code: 'kz', capital: 'Astana', region: 'Asia', flag: '🇰🇿', aliases: [], clue: 'The largest landlocked country in the world.', population: 20000000, currencies: 'Kazakhstani tenge', languages: 'Kazakh, Russian', coords: [51.17, 71.43] },
     { img: '/locations/nepal.jpg', country: 'Nepal', code: 'np', capital: 'Kathmandu', region: 'Asia', flag: '🇳🇵', aliases: [], clue: 'Home to Mount Everest, and the only national flag that is not a rectangle.', population: 30000000, currencies: 'Nepalese rupee', languages: 'Nepali', coords: [27.72, 85.32] },
-    { img: '/locations/newzealand.jpg', country: 'New Zealand', code: 'nz', capital: 'Wellington', region: 'Oceania', flag: '🇳🇿', aliases: ['Aotearoa'], clue: 'A South Pacific island nation where The Lord of the Rings was filmed.', population: 5300000, currencies: 'New Zealand dollar', languages: 'English, Māori', coords: [-41.29, 174.78] },
+    { img: '/locations/new-zealand.jpg', country: 'New Zealand', code: 'nz', capital: 'Wellington', region: 'Oceania', flag: '🇳🇿', aliases: ['Aotearoa'], clue: 'A South Pacific island nation where The Lord of the Rings was filmed.', population: 5300000, currencies: 'New Zealand dollar', languages: 'English, Māori', coords: [-41.29, 174.78] },
     { img: '/locations/russia.jpg', country: 'Russia', code: 'ru', capital: 'Moscow', region: 'Europe', flag: '🇷🇺', aliases: [], clue: 'The largest country in the world, spanning 11 time zones.', population: 144000000, currencies: 'Russian ruble', languages: 'Russian', coords: [55.76, 37.62] },
     { img: '/locations/china.jpg', country: 'China', code: 'cn', capital: 'Beijing', region: 'Asia', flag: '🇨🇳', aliases: [], clue: 'Home to the Great Wall and giant pandas.', population: 1410000000, currencies: 'Chinese yuan', languages: 'Mandarin Chinese', coords: [39.9, 116.41] },
-    { img: '/locations/unitedstates.jpg', country: 'United States', code: 'us', capital: 'Washington, D.C.', region: 'Americas', flag: '🇺🇸', aliases: [], clue: 'Fifty states, and its capital is named after its first president.', population: 340000000, currencies: 'United States dollar', languages: 'English', coords: [38.91, -77.04] },
+    { img: '/locations/united-states.jpg', country: 'United States', code: 'us', capital: 'Washington, D.C.', region: 'Americas', flag: '🇺🇸', aliases: [], clue: 'Fifty states, and its capital is named after its first president.', population: 340000000, currencies: 'United States dollar', languages: 'English', coords: [38.91, -77.04] },
 ]
 
 const TOTAL_ROUNDS = 5
@@ -496,7 +498,7 @@ onBeforeUnmount(() => {
     <div class="play-page">
         <div class="shell">
             <header class="topbar">
-                <RouterLink to="/discover" class="back">← Back to Discover</RouterLink>
+                <BackLink to="/discover">Back to Discover</BackLink>
                 <div v-if="!finished" class="hud">
                     <Transition name="pop">
                         <span v-if="streak > 0" :key="streak" class="streak" :class="{ hot: streak >= 3 }"
@@ -545,7 +547,7 @@ onBeforeUnmount(() => {
                     <div class="actions">
                         <button class="btn-go" @click="startGame">Play again</button>
                         <button class="btn-ghost" @click="share">{{ copied ? 'Copied!' : 'Copy my score' }}</button>
-                        <RouterLink to="/" class="btn-ghost">Back home</RouterLink>
+                        <BackLink to="/">Back home</BackLink>
                     </div>
                 </section>
 
@@ -640,12 +642,10 @@ onBeforeUnmount(() => {
                             </div>
 
                             <div class="facts">
-                                <template v-if="detailsLoading">
-                                    <div v-for="n in 3" :key="n" class="fact"><span class="shimmer w40"></span><span class="shimmer w80"></span></div>
-                                </template>
+                                <PlaneLoader v-if="detailsLoading" compact class="game-facts-loader" label="Loading country details…" />
                                 <div v-for="f in factList" :key="f.label" class="fact">
                                     <span class="fact-label">{{ f.label }}</span>
-                                    <span v-if="f.loading" class="shimmer w80"></span>
+                                    <PlaneLoader v-if="f.loading" compact class="game-loader" label="Loading weather…" />
                                     <span v-else class="fact-value">{{ f.value }}</span>
                                 </div>
                             </div>
@@ -692,7 +692,10 @@ onBeforeUnmount(() => {
     overflow: hidden;
     overflow: clip;
     padding: 2rem 1rem 4rem;
-    background: #101a2e;
+    /* Only the page behind the game follows the theme; the game cards keep their own light palette,
+       so native controls in them (the guess box) stay light too. */
+    background: var(--travel-bg);
+    color-scheme: light;
     font-family: 'DM Sans', system-ui, sans-serif;
     color: var(--ink);
 }
@@ -704,7 +707,6 @@ h1, h2, .end-score, .stamp { font-family: 'Bricolage Grotesque', 'DM Sans', sans
 
 /* ---------- top bar ---------- */
 .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; gap: 1rem; }
-.back { color: var(--sea); text-decoration: none; font-weight: 500; }
 .back:hover { text-decoration: underline; }
 .hud { display: flex; align-items: center; gap: .6rem; }
 .score-pill { background: var(--ink); color: #fff; padding: .4rem .9rem; border-radius: 999px; font-variant-numeric: tabular-nums; }
@@ -814,13 +816,13 @@ button:focus-visible, a:focus-visible, .map-toggle button:focus-visible { outlin
 .flag-img { height: 56px; width: auto; border-radius: 6px; box-shadow: 0 0 0 1px rgba(0, 0, 0, .12); }
 .flag-emoji { font-size: 3rem; line-height: 1; }
 
+.game-loader, .game-facts-loader { --plane-loader-color: var(--sea); --plane-loader-label-color: var(--muted); }
+.game-facts-loader { grid-column: 1 / -1; }
 .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: .6rem; }
 .fact { background: var(--sky); border-radius: 12px; padding: .7rem .9rem; display: flex; flex-direction: column; gap: .25rem; }
 .fact-label { font-size: .8rem; color: var(--muted); }
 .fact-value { font-weight: 500; }
-.shimmer { display: block; height: 14px; border-radius: 6px; background: linear-gradient(90deg, #d5e3ef 25%, #eaf2f9 50%, #d5e3ef 75%); background-size: 200% 100%; animation: shimmer 1.2s linear infinite; }
-.w40 { width: 40%; } .w80 { width: 80%; }
-@keyframes shimmer { to { background-position: -200% 0; } }
+
 
 .blurb { margin: 1rem 0 0; line-height: 1.6; max-width: 62ch; }
 

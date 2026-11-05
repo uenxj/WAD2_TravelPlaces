@@ -28,7 +28,7 @@ const particles = Array.from({ length: 64 }, (_, index) => ({
 </template>
 
 <style scoped>
-.itinerary-atmosphere { --glow: 99 161 208; --particle: 225 241 255; position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: -1; border-radius: 1.5rem; mask-image: linear-gradient(transparent, #000 5%, #000 94%, transparent); }
+.itinerary-atmosphere { --glow: 99 161 208; --particle: var(--travel-particle); position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: -1; border-radius: 1.5rem; mask-image: linear-gradient(transparent, #000 5%, #000 94%, transparent); }
 .atmosphere-glow { position: absolute; inset: 0; background: radial-gradient(ellipse at 85% 8%, rgb(var(--glow) / .2), transparent 50%), radial-gradient(ellipse at 5% 65%, rgb(var(--glow) / .12), transparent 45%); }
 .atmosphere-haze { position: absolute; inset: 0; opacity: .4; background: radial-gradient(ellipse at 20% 15%, rgb(var(--glow) / .17), transparent 65%); animation: sky-drift 28s ease-in-out infinite alternate; }
 .atmosphere-particle { position: absolute; top: var(--y); left: var(--x); width: var(--size); height: var(--size); border-radius: 50%; background: rgb(var(--particle)); opacity: var(--opacity); animation: snow-fall var(--duration) linear var(--delay) infinite; }

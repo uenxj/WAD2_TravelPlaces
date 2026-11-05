@@ -92,7 +92,7 @@ function submit() {
 
       <div class="action-row">
         <button class="primary-action" :disabled="saving" data-testid="save-item-btn">
-          {{ saving ? 'Saving…' : item ? 'Save changes' : 'Add to itinerary' }}
+          {{ saving ? 'Saving…' : item ? 'Save changes' : 'Add to Itinerary' }}
         </button>
         <button type="button" class="secondary-action" @click="emit('close')">Cancel</button>
       </div>
@@ -113,15 +113,11 @@ function submit() {
   }
 }
 
-.activity-form input[type='time'],
-.activity-form input[type='date'] {
-  color-scheme: dark;
-}
 
 .activity-form textarea {
   width: 100%;
   padding: .8rem 1rem;
-  border: 1px solid var(--travel-border);
+  border: 1px solid var(--travel-action-border);
   border-radius: .6rem;
   background: var(--travel-bg);
   color: var(--travel-text);
@@ -132,10 +128,10 @@ function submit() {
 .form-error {
   margin: 0;
   padding: .75rem 1rem;
-  border: 1px solid #bc7c86;
+  border: 1px solid var(--travel-danger-border);
   border-radius: .6rem;
-  background: #3c252c;
-  color: #ffd8dc;
+  background: var(--travel-danger-bg);
+  color: var(--travel-danger-text);
 }
 
 button:disabled {

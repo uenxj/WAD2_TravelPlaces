@@ -1,4 +1,6 @@
 <script setup>
+import BackLink from '../components/BackLink.vue'
+import PlaneLoader from '../components/PlaneLoader.vue'
 // One real trip: its days, activities (with conflict warnings), suggested places, travellers and the
 // weather module's conditions. Route: /trips/:tripId. Only people in the trip can open it.
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
@@ -37,9 +39,15 @@ const newMember = ref('')
 const memberMessage = ref('')
 const memberFailed = ref(false)
 const conditionsVersion = ref(0) // bumped when the day summary refreshes, so each activity's panel re-checks too
+const resolvingLocation = ref(false)
+const locationError = ref('')
 
 const days = computed(() => (trip.value ? tripDays(trip.value) : []))
 const dayIndex = computed(() => days.value.findIndex((d) => d.date === selectedDate.value))
+const dayHeading = computed(() => {
+  const city = (trip.value?.destination ?? '').split(',')[0].trim().replace(/(^|\s)\S/g, letter => letter.toLocaleUpperCase())
+  return selectedDate.value ? `Day ${dayIndex.value + 1} · ${longDate(selectedDate.value)} · ${city}` : ''
+})
 const dayItems = computed(() => items.value.filter((i) => i.date === selectedDate.value))
 const conflictCountByDay = computed(() => {
   const counts = {}
@@ -78,11 +86,30 @@ async function loadItems() {
   }
 }
 
+async function resolveLocation() {
+  if (resolvingLocation.value) return
+  resolvingLocation.value = true
+  locationError.value = ''
+  try {
+    trip.value = await itineraryApi.resolveTripLocation(props.tripId)
+    await loadItems()
+  } catch (e) {
+    if (e.status === 404 && e.message === 'Request failed (404)') {
+      locationError.value = 'Location lookup could not be refreshed. Open Edit trip, choose a destination, and save to try again.'
+    } else {
+      fail(e, locationError)
+    }
+  } finally {
+    resolvingLocation.value = false
+  }
+}
+
 async function init() {
   try {
     trip.value = await itineraryApi.getTrip(props.tripId)
     selectedDate.value = trip.value.startDate
     await loadItems()
+    if (!trip.value.center || !trip.value.timezone) resolveLocation()
   } catch (e) {
     fail(e)
   } finally {
@@ -180,26 +207,25 @@ onBeforeUnmount(() => clearInterval(timer))
 
 <template>
   <main class="content-page">
-    <p v-if="loading" class="muted-copy" role="status">Loading itinerary…</p>
+    <PlaneLoader v-if="loading" label="Loading itinerary…" />
 
     <section v-else-if="pageError && !trip" class="surface" role="alert">
       <h1 class="error-heading">We couldn’t open this trip</h1>
       <p class="muted-copy">{{ pageError }}</p>
-      <RouterLink class="secondary-action" to="/trips">Back to My Trips</RouterLink>
+      <BackLink to="/trips">Back to My Trips</BackLink>
     </section>
 
     <template v-else-if="trip">
-      <RouterLink class="back-link" to="/trips">← My Trips</RouterLink>
+      <BackLink to="/trips">Back to My Trips</BackLink>
       <div class="page-top">
-        <div>
-          <p class="eyebrow">Group trip</p>
-          <h1 class="page-heading" data-testid="trip-title">{{ trip.name }}</h1>
-          <p class="muted-copy">{{ trip.destination }} · {{ dateRange(trip.startDate, trip.endDate) }} · {{ memberCount }} traveller{{ memberCount === 1 ? '' : 's' }}</p>
+        <div class="trip-title-row">
+            <h1 class="page-heading" data-testid="trip-title">{{ trip.name }}</h1>
+            <button type="button" class="secondary-action trip-edit" data-testid="edit-trip-btn" @click="openEditTrip">Edit trip</button>
         </div>
-        <div class="action-row">
+        <p class="muted-copy trip-meta">{{ trip.destination }} · {{ dateRange(trip.startDate, trip.endDate) }} · {{ memberCount }} traveller{{ memberCount === 1 ? '' : 's' }}</p>
+        <div class="action-row trip-actions">
           <RouterLink class="secondary-action" :to="`/checklist?trip=${trip._id}`" data-testid="packing-link">Packing list</RouterLink>
           <RouterLink class="secondary-action" :to="budgetLink" data-testid="budget-link">Budget</RouterLink>
-          <button type="button" class="secondary-action" data-testid="edit-trip-btn" @click="openEditTrip">Edit trip</button>
           <button type="button" class="primary-action" data-testid="add-item-btn" @click="openAdd()">Add activity</button>
         </div>
       </div>
@@ -229,23 +255,26 @@ onBeforeUnmount(() => clearInterval(timer))
       <div class="itinerary-grid">
         <section aria-label="Day schedule">
           <div class="surface day-overview">
-            <div class="day-heading">
-              <div>
-                <p class="eyebrow">Day {{ dayIndex + 1 }} · {{ longDate(selectedDate) }}</p>
-                <h2>{{ dayItems.length }} {{ dayItems.length === 1 ? 'activity' : 'activities' }}</h2>
-              </div>
-              <span v-if="trip.timezone" class="pill">{{ trip.timezone }}</span>
-            </div>
             <ActivityConditions
               v-if="daySummary"
+              :heading="dayHeading"
               :activity="daySummary"
               :activities="dayActivities"
               :trip-id="trip._id"
               @refreshed="conditionsVersion++"
-            />
-            <p v-else class="muted-copy">
-              Weather and air quality appear once the destination can be found on the map. Try “City, Country” in Edit trip.
-            </p>
+            >
+              <template v-if="trip.destinationScope === 'country'" #after-header>
+                <p class="muted-copy small-copy location-context">Weather is for a representative location in {{ trip.destination }}. Choose a city in Edit trip for more local conditions.</p>
+              </template>
+            </ActivityConditions>
+            <template v-else>
+              <p class="eyebrow day-label">{{ dayHeading }}</p>
+              <PlaneLoader v-if="resolvingLocation" compact label="Finding your destination for weather and air quality…" />
+              <template v-else>
+                <p class="muted-copy" :role="locationError ? 'alert' : undefined">{{ locationError || 'The destination lookup is unavailable. Retry, or choose a city and country in Edit trip.' }}</p>
+                <button type="button" class="secondary-action small" @click="resolveLocation">Retry location</button>
+              </template>
+            </template>
           </div>
 
           <p v-if="!dayItems.length" class="muted-copy empty-day" data-testid="empty-day">
@@ -273,12 +302,12 @@ onBeforeUnmount(() => clearInterval(timer))
               <li v-for="m in trip.members" :key="m.id">
                 <span class="avatar" aria-hidden="true">{{ m.name[0].toUpperCase() }}</span>
                 <span>{{ m.name }}</span>
-                <span v-if="isOwner(m.id)" class="muted-copy small-copy">{{ m.id === user?.id ? 'You · organiser' : 'Organiser' }}</span>
+                <span v-if="isOwner(m.id)" class="muted-copy small-copy">Organiser</span>
                 <span v-else-if="m.id === user?.id" class="muted-copy small-copy">You</span>
               </li>
             </ul>
             <form class="member-form" @submit.prevent="addMember">
-              <input v-model="newMember" type="email" aria-label="Add a traveller by their account email" placeholder="Their account email" data-testid="member-input" />
+              <input v-model="newMember" type="email" aria-label="Add a traveller by their account email" placeholder="Their email" data-testid="member-input" />
               <button class="secondary-action small" data-testid="add-member-btn">Add</button>
             </form>
             <p v-if="memberMessage" class="small-copy member-message" :class="{ failed: memberFailed }" role="status">{{ memberMessage }}</p>
@@ -304,17 +333,28 @@ onBeforeUnmount(() => clearInterval(timer))
 </template>
 
 <style scoped>
-.back-link {
-  color: var(--travel-accent);
+.page-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: .5rem 1.5rem;
+  margin: 1rem 0 2rem;
 }
 
-.page-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 1rem;
-  margin: 1rem 0 2rem;
+.trip-title-row { display: flex; align-items: center; gap: 1rem; min-width: 0; grid-column: 1; grid-row: 1; }
+.trip-meta { grid-column: 1 / -1; grid-row: 2; margin: 0; }
+.trip-actions { grid-column: 2; grid-row: 1; }
+@media (max-width: 900px) {
+  .page-top { grid-template-columns: minmax(0, 1fr); }
+  .trip-actions { grid-column: 1; grid-row: 3; margin-top: .5rem; }
+}
+.trip-title-row h1 { min-width: 0; margin: 0; }
+.trip-edit { flex-shrink: 0; white-space: nowrap; }
+.day-label { text-transform: none; letter-spacing: .02em; }
+@media (max-width: 575.98px) {
+  .trip-edit { padding: .5rem .8rem; font-size: .85rem; }
+  .page-top { gap: .75rem; }
+  .trip-title-row { flex-wrap: wrap; }
 }
 
 .error-heading {
@@ -325,17 +365,17 @@ onBeforeUnmount(() => clearInterval(timer))
   position: relative;
   margin: 0 0 1.25rem;
   padding: 1rem 2.5rem 1rem 1rem;
-  border: 1px solid #9c854b;
+  border: 1px solid var(--travel-warn-border);
   border-radius: .75rem;
-  background: #332d22;
-  color: #ffedbf;
+  background: var(--travel-warn-bg);
+  color: var(--travel-warn-text);
   line-height: 1.6;
 }
 
 .alert-box.error {
-  border-color: #bc7c86;
-  background: #3c252c;
-  color: #ffd8dc;
+  border-color: var(--travel-danger-border);
+  background: var(--travel-danger-bg);
+  color: var(--travel-danger-text);
 }
 
 .alert-box ul {
@@ -375,7 +415,7 @@ onBeforeUnmount(() => clearInterval(timer))
   gap: .25rem;
   min-width: 100px;
   padding: .75rem 1rem;
-  border: 1px solid var(--travel-border);
+  border: 1px solid var(--travel-action-border);
   border-radius: .85rem;
   background: var(--travel-panel);
   color: var(--travel-text);
@@ -390,7 +430,7 @@ onBeforeUnmount(() => clearInterval(timer))
 
 .day-navigation button[aria-pressed='true'] {
   border-color: var(--travel-accent);
-  background: #29473f;
+  background: var(--travel-selected);
 }
 
 .badge {
@@ -400,13 +440,15 @@ onBeforeUnmount(() => clearInterval(timer))
   min-width: 1.4rem;
   padding: .1rem .4rem;
   border-radius: 999px;
-  background: #e5736b;
-  color: #fff;
+  background: var(--travel-danger);
+  color: var(--travel-on-danger);
   font-size: .75rem;
   font-style: normal;
   font-weight: 700;
   text-align: center;
 }
+
+.itinerary-grid > * { min-width: 0; }
 
 .itinerary-grid {
   display: grid;
@@ -414,6 +456,8 @@ onBeforeUnmount(() => clearInterval(timer))
   gap: 1.5rem;
   align-items: start;
 }
+
+.location-context { margin-bottom: 1rem; }
 
 .day-overview {
   margin-bottom: 1.25rem;
@@ -437,8 +481,8 @@ onBeforeUnmount(() => clearInterval(timer))
   display: inline-flex;
   padding: .35rem .8rem;
   border-radius: 999px;
-  background: #29473f;
-  color: #cce9df;
+  background: var(--travel-selected);
+  color: var(--travel-selected-text);
   font-size: .8rem;
 }
 
@@ -456,6 +500,7 @@ onBeforeUnmount(() => clearInterval(timer))
 
 .side-column {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1.25rem;
 }
 
@@ -465,7 +510,7 @@ onBeforeUnmount(() => clearInterval(timer))
 
 .members h2 {
   margin: 0 0 .25rem;
-  font-size: 1.05rem;
+  font-size: var(--travel-section-size);
 }
 
 .small-copy {
@@ -484,6 +529,7 @@ onBeforeUnmount(() => clearInterval(timer))
 
 .member-list li {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: .7rem;
 }
@@ -494,8 +540,8 @@ onBeforeUnmount(() => clearInterval(timer))
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: #354d51;
-  color: #fff;
+  background: var(--travel-strong);
+  color: var(--travel-on-strong);
   font-size: .85rem;
 }
 
@@ -508,12 +554,12 @@ onBeforeUnmount(() => clearInterval(timer))
   flex: 1;
   min-width: 0;
   padding: .55rem .8rem;
-  border: 1px solid var(--travel-border);
+  border: 1px solid var(--travel-control-border);
   border-radius: .6rem;
   background: var(--travel-bg);
   color: var(--travel-text);
   font: inherit;
-  font-size: .9rem;
+  font-size: 1rem;
 }
 
 .small {
@@ -527,12 +573,12 @@ onBeforeUnmount(() => clearInterval(timer))
 }
 
 .member-message.failed {
-  color: #ffd8dc;
+  color: var(--travel-danger-text);
 }
 
 @media (max-width: 900px) {
   .itinerary-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 </style>

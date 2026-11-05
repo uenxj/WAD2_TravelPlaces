@@ -1,4 +1,7 @@
 <script>
+import TripBackLink from '../components/TripBackLink.vue'
+import TrashButton from '../components/TrashButton.vue'
+import PlaneLoader from '../components/PlaneLoader.vue'
 
 const API = '/api'
 
@@ -21,6 +24,7 @@ async function api(path, options = {}) {
 
 export default {
     name: 'BudgetPlanner',
+    components: { TripBackLink, TrashButton, PlaneLoader },
     props: {
         tripId: { type: String, default: '' },
         destinationCurrency: { type: String, default: 'JPY' },
@@ -87,7 +91,6 @@ export default {
 
     beforeUnmount() {
         clearTimeout(this.previewTimer)
-        clearTimeout(this._toastTimer)
     },
 
     methods: {
@@ -100,8 +103,6 @@ export default {
         },
         flash(message) {
             this.toast = message
-            clearTimeout(this._toastTimer)
-            this._toastTimer = setTimeout(() => (this.toast = ''), 6000)
         },
 
         splitEvenly(names) {
@@ -200,17 +201,23 @@ export default {
 </script>
 
 <template>
-    <div class="budget-page" :class="{ embedded }">
-        <div class="container budget-container py-3 pb-5">
+    <component :is="embedded ? 'section' : 'main'" class="budget-page" :class="{ embedded }">
+        <div :class="embedded ? 'budget-container' : 'content-page budget-container'">
+            <TripBackLink v-if="!embedded" :trip-id="budgetTripId" />
 
-            <header class="d-flex justify-content-between align-items-center mb-3">
-                <h1 class="h4 mb-0">Budget Planner</h1>
-                <span class="text-muted small" data-testid="trip-id">Trip: {{ budgetTripId }}</span>
+            <header class="budget-header">
+                <div>
+                    <p class="eyebrow">Your trip spending</p>
+                    <component :is="embedded ? 'h2' : 'h1'" :class="embedded ? 'h4' : 'page-heading'">Budget Planner</component>
+                    <p class="muted-copy budget-intro">Plan your spending, track expenses, and keep your trip on budget.</p>
+                </div>
+                <span class="currency-badge">{{ summary ? `${summary.homeCurrency} → ${summary.destCurrency}` : `${form.homeCurrency} → ${form.destCurrency}` }}</span>
+                <span class="visually-hidden" data-testid="trip-id">Trip: {{ budgetTripId }}</span>
             </header>
 
-            <div v-if="toast" class="alert alert-danger py-2" role="alert" data-testid="error">{{ toast }}</div>
+            <div v-if="toast" class="alert alert-danger budget-error" role="alert" data-testid="error"><span>{{ toast }}</span><button type="button" class="btn remove-category" aria-label="Dismiss error" @click="toast = ''">×</button></div>
 
-            <div v-if="loading" class="text-muted">Loading…</div>
+            <PlaneLoader v-if="loading" label="Loading budget…" :compact="embedded" />
 
             <!-- ============ SETUP ============ -->
             <section v-else-if="!summary || editingBudget" class="card card-body" data-testid="setup">
@@ -239,13 +246,15 @@ export default {
                         <button type="button" class="btn btn-sm btn-outline-secondary" @click="splitEvenly()">Split
                             evenly</button>
                     </div>
-                    <div class="row g-2 mb-2" v-for="(c, i) in form.categories" :key="i">
-                        <div class="col-7"><input class="form-control" v-model="c.name" :aria-label="`Category ${i + 1} name`" placeholder="Category" required>
+                    <div class="budget-category-row" v-for="(c, i) in form.categories" :key="i">
+                        <div><input class="form-control" v-model="c.name" :aria-label="`Category ${i + 1} name`" placeholder="Category" required>
                         </div>
-                        <div class="col-12 col-sm-4"><input type="number" min="0" step="0.01" class="form-control"
+                        <div><input type="number" min="0" step="0.01" class="form-control"
                                 v-model.number="c.allocated" required :aria-label="`Category ${i + 1} allocation`" :data-testid="'alloc-' + i"></div>
-                        <div class="col-1 d-grid"><button type="button" class="btn btn-outline-danger"
-                                @click="form.categories.splice(i, 1)" aria-label="Remove category">×</button></div>
+                        <div class="d-grid"><button type="button" class="btn remove-category"
+                                @click="form.categories.splice(i, 1)" aria-label="Remove category" :title="`Remove ${c.name || 'category'}`">
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M9 6V4h6v2M5 6l1 14h12l1-14M10 10v6M14 10v6" /></svg>
+                            </button></div>
                     </div>
                     <button type="button" class="btn btn-sm btn-link px-0 mb-3"
                         @click="form.categories.push({ name: '', allocated: 0 })">+ Add category</button>
@@ -273,7 +282,7 @@ export default {
                 </div>
 
                 <!-- summary cards -->
-                <div class="row g-2 mb-3">
+                <div class="row g-3 mb-4 budget-stats">
                     <div class="col-12 col-sm-4">
                         <div class="card card-body stat">
                             <div class="label">Budget</div>
@@ -294,7 +303,8 @@ export default {
                     </div>
                 </div>
 
-                <div class="progress mb-1" style="height: 14px;" role="progressbar" :aria-valuenow="summary.percentUsed"
+                <section class="card card-body budget-usage mb-4" aria-label="Budget usage">
+                <div class="progress mb-2" style="height: 10px;" role="progressbar" aria-label="Budget used" :aria-valuenow="summary.percentUsed"
                     aria-valuemin="0" aria-valuemax="100">
                     <div class="progress-bar" :class="barClass(summary.status)"
                         :style="{ width: Math.min(summary.percentUsed, 100) + '%' }"></div>
@@ -303,6 +313,8 @@ export default {
                     <span>{{ summary.percentUsed }}% used</span>
                     <span v-if="summary.upcomingTotal > 0">Projected: {{ fmt(summary.projectedTotal) }}</span>
                 </div>
+
+                </section>
 
                 <!-- add expense -->
                 <section class="card card-body mb-3">
@@ -343,9 +355,9 @@ export default {
                 </section>
 
                 <!-- categories -->
-                <section class="mb-3">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h2 class="h6 mb-2">Categories</h2>
+                <section class="mb-4 budget-categories">
+                    <div class="categories-heading">
+                        <h2 class="h6 mb-0">Categories</h2>
                         <button class="btn btn-sm btn-outline-secondary" @click="startEdit"
                             data-testid="edit-budget">Edit budget</button>
                     </div>
@@ -365,7 +377,7 @@ export default {
                 </section>
 
                 <!-- expense list -->
-                <section>
+                <section class="card card-body expense-history">
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <h2 class="h6 mb-0">Expenses</h2>
                         <select class="form-select form-select-sm w-auto" v-model="filter" aria-label="Filter expenses by category">
@@ -386,10 +398,9 @@ export default {
                                     {{ e.amount.toFixed(2) }} {{ e.currency }} @ {{ e.rateUsed.toFixed(4) }}
                                 </div>
                             </div>
-                            <div class="text-end">
+                            <div class="expense-actions">
                                 <div>{{ fmt(e.amountHome) }}</div>
-                                <button class="btn btn-sm btn-link text-danger p-0" @click="removeExpense(e)"
-                                    :data-testid="'delete-' + e.id">Delete</button>
+                                <TrashButton label="Delete expense" @click="removeExpense(e)" :data-testid="'delete-' + e.id" />
                             </div>
                         </li>
                     </ul>
@@ -397,74 +408,64 @@ export default {
             </template>
 
         </div>
-    </div>
+    </component>
+
 </template>
 
 <style scoped>
-/* Page background lives on this wrapper (not <body>) so other pages are unaffected */
-.budget-page {
-    background: var(--travel-bg);
-    color: var(--travel-text);
-    min-height: calc(100vh - 56px);
-    /* minus navbar height */
-}
-
-.container.budget-container {
-    max-width: 880px;
-}
-
-.card {
-    border: 1px solid #e3e6ea;
-    border-radius: 12px;
-}
-
-.stat .label {
-    font-size: .75rem;
-    color: #6b7280;
-    text-transform: uppercase;
-    letter-spacing: .04em;
-}
-
-.stat .value {
-    font-size: 1.05rem;
-    font-weight: 600;
-}
-
-.stat-over {
-    border-color: #dc3545;
-}
-
-.stat-over .value {
-    color: #dc3545;
-}
-
-.progress {
-    background: #e9ecef;
-}
-
-/* Phone: tighter spacing, larger tap targets */
-@media (max-width: 575.98px) {
-    .stat .value {
-        font-size: .9rem;
-    }
-
-    .btn,
-    .form-control,
-    .form-select {
-        min-height: 44px;
-    }
-
-    .container.budget-container {
-        padding-left: 12px;
-        padding-right: 12px;
-    }
-}
-.budget-page.embedded { min-height: auto; }
-.embedded .budget-container { max-width: none; padding-inline: 0; }
-.card, .list-group-item { background: var(--travel-panel); color: var(--travel-text); border-color: var(--travel-border); }
-.text-muted, .stat .label { color: var(--travel-muted) !important; }
-.form-control, .form-select { background-color: var(--travel-bg); color: var(--travel-text); border-color: var(--travel-border); }
+.budget-error { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.budget-error .remove-category { flex-shrink: 0; color: inherit; }
+.budget-page { background: var(--travel-bg); color: var(--travel-text); min-height: calc(100svh - 80px); }
+.budget-container { max-width: 1200px; }
+.budget-header { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 1rem; margin-bottom: 2rem; }
+.budget-header .eyebrow { margin-bottom: .5rem; }
+.budget-header .page-heading, .budget-header .h4 { margin: 0; }
+.budget-intro { margin: .75rem 0 0; max-width: 38rem; }
+.currency-badge { flex-shrink: 0; margin-top: .4rem; padding: .45rem .9rem; border: 1px solid var(--travel-notice-border); border-radius: 999px; background: var(--travel-selected); color: var(--travel-selected-text); font-size: .85rem; font-weight: 600; }
+.card, .list-group-item { background: var(--travel-panel); color: var(--travel-text); border: 1px solid var(--travel-border); }
+.card { border-radius: 1.25rem; }
+.card-body { padding: 1.5rem; }
+.card .h5, .budget-container h2.h6 { font-size: var(--travel-section-size); margin-bottom: 1.25rem; font-weight: 650; }
+.stat { height: 100%; background: linear-gradient(145deg, var(--travel-panel), var(--travel-stat-end)); }
+.stat .label { color: var(--travel-muted); font-size: .75rem; font-weight: 650; text-transform: uppercase; letter-spacing: .08em; margin-bottom: .65rem; }
+.stat .value { font-size: clamp(1.25rem, 2.5vw, 1.9rem); font-weight: 650; letter-spacing: -.03em; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.budget-stats > div:last-child .stat .value { color: var(--travel-accent); }
+.stat-over { border-color: var(--travel-danger-border); }
+.budget-stats > div:last-child .stat-over .value { color: var(--travel-danger-text); }
+.text-muted { color: var(--travel-muted) !important; }
+.form-label { color: var(--travel-text); font-size: .9rem; }
+.form-control, .form-select { min-width: 0; min-height: 44px; padding: .65rem .8rem; background-color: var(--travel-bg); color: var(--travel-text); border: 1px solid var(--travel-control-border); border-radius: .65rem; --bs-form-select-bg-img: var(--travel-select-arrow); }
 .form-control::placeholder { color: var(--travel-muted); opacity: 1; }
-.btn-outline-secondary { color: var(--travel-muted); border-color: var(--travel-border); }
-.progress { background: #35435a; }
+.form-control:focus, .form-select:focus { color: var(--travel-text); background-color: var(--travel-bg); border-color: var(--travel-accent); box-shadow: none; }
+.budget-categories { margin-top: .5rem; }
+.categories-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .75rem; margin-bottom: 1.25rem; }
+.budget-category-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .65fr) 44px; max-width: 650px; gap: .65rem; align-items: center; margin-bottom: .65rem; }
+.btn { min-height: 40px; padding: .55rem 1rem; border-radius: 999px; font-weight: 600; }
+.btn-sm { min-height: 36px; font-size: .8rem; }
+.btn-primary { --bs-btn-bg: var(--travel-primary-solid); --bs-btn-border-color: var(--travel-primary-border); --bs-btn-hover-bg: var(--travel-primary-solid-hover); --bs-btn-hover-border-color: var(--travel-accent); --bs-btn-active-bg: var(--travel-primary-solid-hover); --bs-btn-active-border-color: var(--travel-accent); --bs-btn-disabled-bg: var(--travel-primary-solid); --bs-btn-disabled-border-color: var(--travel-primary-border); --bs-btn-color: var(--travel-on-primary); --bs-btn-hover-color: var(--travel-on-primary); --bs-btn-active-color: var(--travel-on-primary); --bs-btn-disabled-color: var(--travel-on-primary); color: var(--travel-on-primary); background: var(--travel-primary-bg); }
+.btn-outline-secondary { color: var(--travel-text); border-color: var(--travel-action-border); background: transparent; }
+.btn-link { color: var(--travel-accent); }
+.btn.remove-category { display: inline-grid; place-items: center; min-height: 44px; width: 44px; padding: 0; color: var(--travel-muted); border-color: transparent; background: transparent; }
+.text-danger { color: var(--travel-danger-text) !important; }
+.alert { padding: 1rem; border-radius: .85rem; line-height: 1.6; }
+.alert-danger { background: var(--travel-danger-bg); color: var(--travel-danger-text); border-color: var(--travel-danger-border); }
+.alert-warning { background: var(--travel-warn-bg); color: var(--travel-warn-text); border-color: var(--travel-warn-border); }
+.progress { border-radius: 999px; background: var(--travel-progress-track); overflow: hidden; }
+.progress-bar.bg-success { background: var(--travel-success) !important; }
+.progress-bar.bg-warning { background: var(--travel-bar-warn) !important; }
+.progress-bar.bg-danger { background: var(--travel-bar-over) !important; }
+.budget-usage > .text-muted { margin-bottom: 0 !important; }
+.list-group { gap: .65rem; }
+.list-group-item { padding: 1rem; gap: 1rem; flex-wrap: wrap; border-radius: .85rem; }
+.list-group-item + .list-group-item { border-top-width: 1px; }
+.list-group-item:first-child, .list-group-item:last-child { border-radius: .85rem; }
+.expense-actions { display: flex; align-items: center; gap: .25rem; }
+.expense-history > .d-flex, section > .d-flex { flex-wrap: wrap; gap: .75rem; }
+.budget-page.embedded { min-height: auto; }
+.embedded .budget-container { max-width: none; padding: 0; }
+.embedded .budget-header { margin-bottom: 1.5rem; }
+@media (hover: hover) { .btn-outline-secondary:hover { color: var(--travel-text); background: var(--travel-selected); border-color: var(--travel-accent); } .btn-link:hover { color: var(--travel-accent-hover); } .btn.remove-category:hover { color: var(--travel-accent); background: var(--travel-selected); } }
+@media (prefers-reduced-motion: no-preference) { .btn:not(:disabled) { transition: transform 150ms ease-out; } .btn:not(:disabled):active { transform: scale(.96); } }
+@media (prefers-reduced-motion: reduce) { .progress-bar { transition: none; } }
+@media (max-width: 575.98px) { .card-body { padding: 1.1rem; } .stat .value { font-size: 1.45rem; } .budget-header { margin-bottom: 1.5rem; } .budget-category-row { gap: .45rem; } }
 </style>

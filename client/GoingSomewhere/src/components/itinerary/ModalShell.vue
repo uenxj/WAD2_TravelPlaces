@@ -1,47 +1,53 @@
 <script setup>
-// The pop-up frame shared by the activity and trip forms: dimmed backdrop, Escape / outside click to close.
-import { onMounted, onBeforeUnmount } from 'vue'
+// Native modal behavior contains keyboard focus and makes the rest of the page inert.
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 
 defineProps({ title: { type: String, required: true }, titleId: { type: String, required: true }, testid: { type: String, default: '' } })
 const emit = defineEmits(['close'])
-
-function onKey(e) {
-  if (e.key === 'Escape') emit('close')
-}
-onMounted(() => document.addEventListener('keydown', onKey))
-onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
+const dialog = ref(null)
+let returnFocus
+let previousOverflow
+onMounted(() => {
+  returnFocus = document.activeElement
+  previousOverflow = document.body.style.overflow
+  document.body.style.overflow = 'hidden'
+  dialog.value.showModal()
+  dialog.value.querySelector('input, select, textarea')?.focus()
+})
+onBeforeUnmount(() => {
+  dialog.value?.close()
+  document.body.style.overflow = previousOverflow
+  if (returnFocus?.isConnected) returnFocus.focus({ preventScroll: true })
+})
 </script>
 
 <template>
-  <div class="modal-backdrop" @click.self="emit('close')">
-    <div class="modal-panel surface" role="dialog" aria-modal="true" :aria-labelledby="titleId" :data-testid="testid || undefined">
+  <dialog ref="dialog" class="trip-dialog" :aria-labelledby="titleId" :data-testid="testid || undefined" @cancel.prevent="emit('close')" @click.self="emit('close')">
+    <div class="modal-panel surface">
       <div class="modal-head">
         <h2 :id="titleId">{{ title }}</h2>
         <button type="button" class="modal-close" aria-label="Close" @click="emit('close')">×</button>
       </div>
       <slot />
     </div>
-  </div>
+  </dialog>
 </template>
 
 <style scoped>
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 1050;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  overflow-y: auto;
-  padding: 1.5rem .75rem;
-  background: rgb(5 10 20 / .72);
-}
-
-.modal-panel {
-  width: 100%;
-  max-width: 560px;
+.trip-dialog {
+  width: min(560px, calc(100% - 1.5rem));
+  max-height: calc(100dvh - 3rem);
   margin: auto;
+  padding: 0;
+  border: 0;
+  border-radius: 1.25rem;
+  background: var(--travel-panel);
+  color: var(--travel-text);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
+.trip-dialog::backdrop { background: var(--travel-backdrop); }
+.modal-panel { width: 100%; }
 
 .modal-head {
   display: flex;
@@ -57,6 +63,9 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
 }
 
 .modal-close {
+  min-width: 44px;
+  min-height: 44px;
+  flex-shrink: 0;
   border: 0;
   background: transparent;
   color: var(--travel-muted);

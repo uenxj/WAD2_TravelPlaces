@@ -1,4 +1,5 @@
 <script setup>
+import BackLink from '../components/BackLink.vue'
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { setPreviewMode } from '../services/preview.js'
@@ -44,7 +45,7 @@ async function submit() {
       <p class="eyebrow">Your next adventure starts here</p>
       <h1 class="page-heading">A little less planning.<br>A lot more exploring.</h1>
       <p class="muted-copy">Keep your itinerary, budget and travel group together in one place.</p>
-      <RouterLink :to="backPath" class="back-link">← Continue exploring</RouterLink>
+      <BackLink :to="backPath">Continue exploring</BackLink>
     </section>
     <section class="surface auth-card" aria-labelledby="auth-title">
       <div class="auth-switch" aria-label="Account options">
@@ -100,11 +101,6 @@ async function submit() {
   margin: 1.5rem 0;
 }
 
-.back-link {
-  color: var(--travel-accent);
-  text-underline-offset: 4px;
-}
-
 .auth-card {
   max-width: 480px;
   width: 100%;
@@ -135,8 +131,8 @@ async function submit() {
 }
 
 .auth-switch button[aria-pressed="true"] {
-  background: #354d51;
-  color: #fff;
+  background: var(--travel-strong);
+  color: var(--travel-on-strong);
 }
 
 .password-field {

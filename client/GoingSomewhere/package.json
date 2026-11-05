@@ -13,7 +13,8 @@
     "test:budget": "node --test server/test/budgetMongoStore.test.js server/test/budgetAccess.test.js src/budget/*.test.js",
     "test:auth": "node --test server/test/auth.test.js",
     "test:checklist": "node --test server/test/checklist.test.js src/checklist/catalog.test.js src/checklist/itemArt.test.js src/checklist/recommend.test.js src/checklist/tripSignals.test.js",
-    "test:itinerary": "node --test server/test/itinerary*.test.js src/itinerary/*.test.js"
+    "test:itinerary": "node --test server/test/itinerary*.test.js src/itinerary/*.test.js",
+    "test:guess-country": "playwright test guess-country"
   },
   "dependencies": {
     "bootstrap": "^5.3.8",
@@ -25,6 +26,7 @@
     "vue-router": "^5.4.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
     "@vitejs/plugin-vue": "^6.0.8",
     "playwright": "^1.64.1",
     "vite": "^8.2.2",

@@ -23,7 +23,12 @@ globalThis.fetch = async (url, options) => {
   const target = String(url)
   if (target.includes('nominatim.openstreetmap.org')) {
     const q = new URL(target).searchParams.get('q').toLowerCase()
+    if (q === 'switzerland') return Response.json({}, { status: 503 })
     return Response.json(q.startsWith('singapore') ? [SINGAPORE] : [])
+  }
+  if (target.includes('geocoding-api.open-meteo.com')) {
+    const name = new URL(target).searchParams.get('name').toLowerCase()
+    return Response.json({ results: name === 'switzerland' ? [{ name: 'Switzerland', latitude: 47.00016, longitude: 8.01427, timezone: 'Europe/Zurich', feature_code: 'PCLI' }] : [] })
   }
   if (target.includes('api.opentripmap.com')) return Response.json(PLACES)
   return realFetch(url, options)

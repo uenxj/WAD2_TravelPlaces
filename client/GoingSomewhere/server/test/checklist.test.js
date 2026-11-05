@@ -42,6 +42,12 @@ describe('checklistLogic', () => {
     );
   });
 
+  test('new item: unpacked unless it arrives packed', () => {
+    assert.equal(logic.validateNewItem({ name: 'Passport' }).value.done, false);
+    assert.equal(logic.validateNewItem({ name: 'Passport', done: true }).value.done, true);
+    assert.equal(logic.validateNewItem({ name: 'Passport', done: 'yes' }).ok, false);
+  });
+
   test('new item: rejects bad fields', () => {
     const v = logic.validateNewItem({ name: '', category: 'Food', priority: 'maybe', suggestionKey: 'Bad Key' });
     assert.equal(v.ok, false);

@@ -23,6 +23,9 @@ was made, suggestions are ranked by relevance, and an item is never suggested or
    the tags it shares with the trip. Evidence grows when independent sources agree, capped at 1.5×.
    Results are sorted by score, labelled Top pick / Recommended / Nice to have, and carry all their
    reasons. Items already on the list are hidden; the database refuses a second copy of an item.
+4. **Straight into the suitcase.** "Generate" and "+ Add" / "Add all" put catalogue items on the
+   list already packed (`toNewItem` sends `done: true`); the user reviews them in "Review your
+   list" and removes what they don't need. Items typed by hand start unpacked.
 
 **Tags:** situations `abroad`, `cold`, `snow`, `rain`, `hot`, `beach`, `swim`, `hike`, `ski`, `city`;
 backups `battery`, `unwell`, `cash`, `lost-docs`.
@@ -33,7 +36,7 @@ Things that can go wrong on any trip are handled by the same engine, as data (`B
 catalog.js): each backup is a tag plus a reason, e.g. `{ tag: 'battery', reason: 'Backup: if your
 phone dies' }`, optionally limited to trips that already have certain tags
 (`when: ['abroad']` for losing your passport). They are added at half strength, so they rank as
-*Nice to have* below what the trip itself needs, and "Generate my packing list" leaves backup-only
+*Nice to have* below what the trip itself needs, and "Generate" leaves backup-only
 items out. Which items cover a backup is set in the items' `needs` (Power bank: `battery: 3`).
 
 Items can also list other names in `also` (Power bank: "portable charger"), so an item the user
@@ -58,8 +61,9 @@ features. The connection is written in `src/views/Checklist.vue` (`itineraryActi
   `/checklist?trip=<trip _id>`. The checklist reads that trip and its activities through the
   itinerary's own API (`src/itinerary/api.js`) and passes each one as `{ title, date }`. The title is
   scanned for `TAG_WORDS` (e.g. "Skiing in Niseko" gives `ski`); `type`/`tags` from the tag list above
-  would be used directly if the itinerary ever provides them. Sample trips (`preview-…`) and
-  `demo-trip` have no itinerary, and if the trip can't be opened the checklist works on its own.
+  would be used directly if the itinerary ever provides them. Sample trips (`preview-…`) use their
+  sample itinerary from `src/data/sampleTrips.js`; `demo-trip` has none, and if the trip can't be
+  opened the checklist works on its own.
 - **Destination and weather (connected), in `tripSignals.js`:**
   - A destination outside Singapore (Charlene's `isSingapore()` on the trip's centre point and
     timezone) → `{ tag: 'abroad', reason: 'Going abroad: Tokyo, Japan' }`.

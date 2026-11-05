@@ -21,11 +21,20 @@ const D1 = addDays(todayString(), 30);
 const realFetch = globalThis.fetch;
 let nominatimQueries = [];
 const nominatim = {}; // lowercased query -> rows
+const nominatimFailures = {};
+const backupLocations = {};
+let backupQueries = [];
 globalThis.fetch = async (url, opts) => {
   if (String(url).includes('nominatim.openstreetmap.org')) {
     const q = new URL(url).searchParams.get('q').toLowerCase();
     nominatimQueries.push(q);
+    if (nominatimFailures[q]) return Response.json({}, { status: nominatimFailures[q] });
     return Response.json(nominatim[q] || []);
+  }
+  if (String(url).includes('geocoding-api.open-meteo.com')) {
+    const q = new URL(url).searchParams.get('name').toLowerCase();
+    backupQueries.push(q);
+    return Response.json({ results: backupLocations[q] || [] });
   }
   return realFetch(url, opts);
 };
@@ -45,6 +54,9 @@ after(async () => {
 beforeEach(() => {
   clearGeocodeCache();
   nominatimQueries = [];
+  backupQueries = [];
+  delete process.env.GEOCODE_DISABLED;
+  for (const source of [nominatimFailures, backupLocations]) for (const key of Object.keys(source)) delete source[key];
   for (const k of Object.keys(nominatim)) delete nominatim[k];
 });
 
@@ -84,6 +96,148 @@ test('editing a trip looks the destination up again when it changes, and backfil
   const old = await store.trips.create({ name: 'Old', destination: 'Singapore', startDate: D1, endDate: D1, ownerId: 'alice', memberIds: ['alice'] });
   const fixed = await call('PUT', `/trips/${old._id}`, { name: 'Old', destination: 'Singapore', startDate: D1, endDate: D1 });
   assert.deepEqual(fixed.body.center, { lat: 1.29, lng: 103.85 });
+});
+
+// ---------- failed lookups and country destinations ----------
+
+const swissBackup = { name: 'Switzerland', latitude: 47.00016, longitude: 8.01427, timezone: 'Europe/Zurich', feature_code: 'PCLI' };
+
+test('a country destination is supported by the primary provider', async () => {
+  const trip = await makeTrip('switzerland', [{ lat: '46.7985624', lon: '8.2319736', addresstype: 'country', place_rank: 4 }]);
+  assert.equal(trip.timezone, 'Europe/Zurich');
+  assert.equal(trip.destinationScope, 'country');
+  assert.equal(backupQueries.length, 0);
+});
+
+test('a provider outage uses the backup and prefers a country over a town with the same name', async () => {
+  nominatimFailures.switzerland = 503;
+  backupLocations.switzerland = [
+    { name: 'Switzerland', latitude: 30.07607, longitude: -81.64731, feature_code: 'PPL', timezone: 'America/New_York' },
+    swissBackup,
+  ];
+  const trip = await makeTrip('Switzerland');
+  assert.deepEqual(trip.center, { lat: 47.00016, lng: 8.01427 });
+  assert.equal(trip.timezone, 'Europe/Zurich');
+  assert.equal(trip.destinationScope, 'country');
+  assert.deepEqual(backupQueries, ['switzerland']);
+});
+
+test('the backup keeps an international city and country query together', async () => {
+  backupLocations['zurich, switzerland'] = [{ name: 'Zurich', latitude: 47.3769, longitude: 8.5417, feature_code: 'PPLA', timezone: 'Europe/Zurich' }];
+  const trip = await makeTrip('Zurich, Switzerland');
+  assert.deepEqual(trip.center, { lat: 47.3769, lng: 8.5417 });
+  assert.equal(trip.destinationScope, 'place');
+  assert.deepEqual(backupQueries, ['zurich, switzerland']);
+});
+
+test('reopening location resolution repairs an existing trip and its activity conditions', async () => {
+  const trip = await makeTrip('Switzerland');
+  assert.equal(trip.center, null);
+  await add(trip._id);
+  backupLocations.switzerland = [swissBackup];
+  const recovered = await call('POST', `/trips/${trip._id}/location`);
+  assert.equal(recovered.status, 200);
+  assert.deepEqual(recovered.body.center, { lat: 47.00016, lng: 8.01427 });
+  assert.equal(recovered.body.timezone, 'Europe/Zurich');
+  assert.equal(recovered.body.name, trip.name);
+  assert.equal(recovered.body.startDate, trip.startDate);
+  const saved = await store.trips.get(trip._id);
+  assert.deepEqual(saved.center, recovered.body.center);
+  const items = await call('GET', `/trips/${trip._id}/items`);
+  assert.deepEqual(items.body[0].weather.coordinates, saved.center);
+  assert.equal(items.body[0].weather.timezone, 'Europe/Zurich');
+  // The earlier empty result must not stop a later retry from reaching either provider.
+  assert.equal(nominatimQueries.filter(q => q === 'switzerland').length, 2);
+  assert.equal(backupQueries.filter(q => q === 'switzerland').length, 2);
+});
+
+test('location resolution failures leave the trip unchanged and offer a retry', async () => {
+  const trip = await makeTrip('Nowhereland');
+  const before = await store.trips.get(trip._id);
+  const response = await call('POST', `/trips/${trip._id}/location`);
+  assert.equal(response.status, 503);
+  assert.match(response.body.error, /Retry/);
+  assert.deepEqual(await store.trips.get(trip._id), before);
+});
+
+test('location resolution checks membership before making any provider request', async () => {
+  const trip = await makeTrip('Switzerland');
+  nominatimQueries = [];
+  backupQueries = [];
+  assert.equal((await call('POST', `/trips/${trip._id}/location`, undefined, 'bob')).status, 403);
+  assert.equal((await call('POST', `/trips/${trip._id}/location`, undefined, null)).status, 401);
+  assert.deepEqual(nominatimQueries, []);
+  assert.deepEqual(backupQueries, []);
+});
+
+test('null, empty and out-of-range coordinates never become a location', async () => {
+  for (const lat of [null, '', 999]) {
+    nominatim.switzerland = [{ lat, lon: '8.23' }];
+    backupLocations.switzerland = [{ ...swissBackup, latitude: lat }];
+    clearGeocodeCache();
+    const trip = await makeTrip('Switzerland');
+    assert.equal(trip.center, null);
+    assert.equal(trip.timezone, '');
+  }
+});
+
+test('editing a trip with coordinates but no timezone repairs its location', async () => {
+  const trip = await store.trips.create({ name: 'Old', destination: 'Switzerland', startDate: D1, endDate: D1, ownerId: 'alice', memberIds: ['alice'], center: { lat: 46.8, lng: 8.23 }, timezone: '' });
+  backupLocations.switzerland = [swissBackup];
+  const repaired = await call('PUT', `/trips/${trip._id}`, { name: 'Old', destination: 'Switzerland', startDate: D1, endDate: D1 });
+  assert.equal(repaired.status, 200);
+  assert.equal(repaired.body.timezone, 'Europe/Zurich');
+});
+
+test('GEOCODE_DISABLED also disables the backup provider', async () => {
+  process.env.GEOCODE_DISABLED = 'true';
+  const trip = await makeTrip('Switzerland');
+  assert.equal(trip.center, null);
+  assert.deepEqual(nominatimQueries, []);
+  assert.deepEqual(backupQueries, []);
+});
+
+
+// ---------- confirmed search selections ----------
+const zurichSelection = { label: 'Zurich, Switzerland', latitude: 47.3769, longitude: 8.5417, timezone: 'Europe/Zurich', scope: 'place' };
+
+test('a selected destination saves coordinates without another geocoding request', async () => {
+  const response = await call('POST', '/trips', { name: 'Selected city', destination: zurichSelection.label, destinationLocation: zurichSelection, startDate: D1, endDate: D1 });
+  assert.equal(response.status, 201);
+  assert.deepEqual(response.body.center, { lat: 47.3769, lng: 8.5417 });
+  assert.equal(response.body.timezone, 'Europe/Zurich');
+  assert.equal(response.body.destinationScope, 'place');
+  assert.deepEqual(nominatimQueries, []);
+  assert.deepEqual(backupQueries, []);
+});
+
+test('editing a trip with a selected destination replaces its old location without geocoding', async () => {
+  const trip = await makeTrip('Switzerland');
+  nominatimQueries = [];
+  backupQueries = [];
+  const response = await call('PUT', `/trips/${trip._id}`, { name: trip.name, destination: zurichSelection.label, destinationLocation: zurichSelection, startDate: D1, endDate: D1 });
+  assert.equal(response.status, 200);
+  assert.deepEqual(response.body.center, { lat: 47.3769, lng: 8.5417 });
+  assert.equal(response.body.timezone, 'Europe/Zurich');
+  assert.deepEqual(nominatimQueries, []);
+  assert.deepEqual(backupQueries, []);
+});
+
+test('stale or invalid destination selections cannot silently store the wrong location', async () => {
+  for (const invalid of [
+    { ...zurichSelection, label: 'Bern, Switzerland' },
+    { ...zurichSelection, latitude: null },
+    { ...zurichSelection, latitude: 100 },
+    { ...zurichSelection, longitude: -190 },
+    { ...zurichSelection, timezone: 'Not/A_Timezone' },
+    { ...zurichSelection, scope: 'invalid' },
+  ]) {
+    const response = await call('POST', '/trips', { name: 'Invalid', destination: zurichSelection.label, destinationLocation: invalid, startDate: D1, endDate: D1 });
+    assert.equal(response.status, 400);
+    assert.match(response.body.error, /Select a destination/);
+  }
+  assert.deepEqual(nominatimQueries, []);
+  assert.deepEqual(backupQueries, []);
 });
 
 // ---------- manual activities ----------
