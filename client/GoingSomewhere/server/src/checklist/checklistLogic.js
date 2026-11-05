@@ -32,7 +32,7 @@ function checkEnum(raw, field, allowed, errors) {
 
 /**
  * Validate a new item. Returns { ok, errors, value }.
- * Only name is required; the rest fall back to sensible defaults.
+ * Only name is required; the rest fall back to sensible defaults (done: false).
  */
 function validateNewItem(input) {
   const errors = [];
@@ -52,6 +52,12 @@ function validateNewItem(input) {
     } else {
       value.reason = input.reason.trim() || null;
     }
+  }
+
+  // Generated and suggested items arrive already packed (done: true); the user just reviews them.
+  if (input?.done != null) {
+    if (typeof input.done !== 'boolean') errors.push('done must be true or false');
+    else value.done = input.done;
   }
 
   // suggestionKey marks catalogue items (defaults and suggestions) so the same

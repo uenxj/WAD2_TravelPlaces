@@ -2,7 +2,8 @@
 // Flat-lay suitcase seen from above: lid (top) and base (bottom), each with compartments.
 // Every checklist item is a picture. Unpacked items lie around the case; packed ones sit in
 // their compartment slot, and empty slots show a faint outline of what still belongs there.
-// Tap an item (or drag it in / out) to pack or unpack it. At 100% the lid folds shut.
+// Tap an item (or drag it in / out) to pack or unpack it. The lid folds shut once everything is
+// packed and the final check is done; until then it stays open so the list can still be reviewed.
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { CATEGORIES } from '../../src/checklist/catalog.js'
 import { artUrl } from '../../src/checklist/itemArtUrls.js'
@@ -39,7 +40,7 @@ onBeforeUnmount(() => observer?.disconnect())
 const mobile = computed(() => width.value < 640)
 const tok = computed(() => (mobile.value ? 38 : 46)) // size of items lying outside
 
-const closed = computed(() => props.items.length > 0 && props.items.every((i) => i.done))
+const closed = computed(() => props.cleared && props.items.length > 0 && props.items.every((i) => i.done))
 
 // Lid and base are the same size so the lid can fold exactly over the base.
 // Once closed, the base moves to the top and the panel shrinks to fit (after the lid has folded).
@@ -213,7 +214,7 @@ function ghostStyle(item) {
   <section class="suitcase-panel" aria-labelledby="suitcase-title" data-testid="suitcase">
     <h2 id="suitcase-title" class="sp-title">Your suitcase</h2>
 
-    <div ref="stage" class="stage" :class="{ closed, cleared: closed && cleared, dragging: !!drag }"
+    <div ref="stage" class="stage" :class="{ closed, dragging: !!drag }"
       :style="{ height: geo.height + 'px' }" @pointermove="onMove">
 
       <!-- lid: inside face (open) and outside face (shown once it folds shut) -->
@@ -253,7 +254,8 @@ function ghostStyle(item) {
       </button>
 
       <p class="stage-hint" aria-hidden="true">
-        <template v-if="closed">{{ cleared ? 'Tagged and cleared. Ready to fly!' : 'All packed. Lid closed, one final check to go.' }}</template>
+        <template v-if="closed">Tagged and cleared. Ready to fly!</template>
+        <template v-else-if="items.every((i) => i.done)">All in. Review it, then do the final check to close the lid</template>
         <template v-else>{{ mobile ? 'Tap an item to pack it' : 'Tap an item, or drag it into the case' }}</template>
       </p>
     </div>
@@ -472,7 +474,7 @@ function ghostStyle(item) {
   text-transform: uppercase;
 }
 
-.cleared .tag {
+.closed .tag {
   opacity: 1;
   animation: swing 1.6s ease-out 1.3s both;
 }
@@ -692,7 +694,7 @@ function ghostStyle(item) {
     transition: none;
   }
 
-  .cleared .tag {
+  .closed .tag {
     animation: none;
     transform: rotate(14deg);
   }

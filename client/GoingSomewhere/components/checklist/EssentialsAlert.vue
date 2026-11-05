@@ -22,7 +22,7 @@ const open = computed(() =>
       <span class="forget-icon" aria-hidden="true">!</span>
       <div>
         <h2 id="forget-title" class="forget-title">Don't forget</h2>
-        <p class="forget-sub">{{ open.length }} trip-critical item{{ open.length === 1 ? '' : 's' }} still need attention</p>
+        <p class="forget-sub">{{ open.length }} trip-critical item{{ open.length === 1 ? ' still needs' : 's still need' }} attention</p>
       </div>
     </div>
     <ul class="forget-list">
