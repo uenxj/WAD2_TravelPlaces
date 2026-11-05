@@ -115,7 +115,6 @@ onMounted(load)
   list-style: none;
 }
 
-/* .trip-card-content { height: 100%; padding-inline-end: .75rem; border-radius: 0; } */
 .trip-card-content { height: 100%; padding-inline-end: .75rem; border-radius: 1.25rem; }
 
 .card-footer-row .action-row { gap: .25rem; }

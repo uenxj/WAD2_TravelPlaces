@@ -252,9 +252,7 @@ test('trip dialogs contain keyboard focus and return it to the trigger', async (
   // It must never move focus into the inert application behind the dialog.
   if (await page.evaluate(() => document.activeElement === document.body)) await page.keyboard.press('Tab')
   await expect(dialog.getByRole('button', { name: 'Close', exact: true })).toBeFocused()
-  // await page.keyboard.press('Shift+Tab')
-  // await expect(cancel).toBeFocused()
-    await page.keyboard.press('Shift+Tab')
+  await page.keyboard.press('Shift+Tab')
   // Same browser-chrome quirk going backwards: Chromium can pass through the browser UI before wrapping
   if (await page.evaluate(() => document.activeElement === document.body)) await page.keyboard.press('Shift+Tab')
   await expect(cancel).toBeFocused()
