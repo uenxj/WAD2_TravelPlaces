@@ -20,6 +20,11 @@ export default defineConfig({
     url: 'http://127.0.0.1:3100/api/trips/health-check/expenses',
     reuseExistingServer: false,
   }, {
+    // Accounts + trips + itineraries (tests/e2e/itinerary.spec.js)
+    command: 'node tests/e2e/itinerary-server.cjs',
+    url: 'http://127.0.0.1:3101/api/auth/me',
+    reuseExistingServer: false,
+  }, {
     command: 'npm run dev -- --host 127.0.0.1',
     url: 'http://127.0.0.1:5173',
     reuseExistingServer: !process.env.CI,

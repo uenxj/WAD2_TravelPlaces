@@ -16,7 +16,11 @@ const router = createRouter({
     { path: '/budget', component: () => import('../src/views/Budget.vue'), meta: { requiresAuth: true, liveSessionOnly: true } },
     { path: '/checklist', component: () => import('../src/views/Checklist.vue') },
     { path: '/trips/preview/:id', component: () => import('../src/views/AccountPage.vue'), meta: { requiresAuth: true } },
-    ...['/trips', '/trips/new', '/profile', '/saved'].map(path => ({
+    // Real trips and itineraries (signed in). Without a login, /trips and /trips/new keep showing the preview pages.
+    { path: '/trips', component: () => import('../src/views/Trips.vue'), meta: { requiresAuth: true } },
+    { path: '/trips/new', component: () => import('../src/views/NewTrip.vue'), meta: { requiresAuth: true } },
+    { path: '/trips/:tripId', component: () => import('../src/views/Itinerary.vue'), props: true, meta: { requiresAuth: true, liveSessionOnly: true } },
+    ...['/profile', '/saved'].map(path => ({
       path, component: () => import('../src/views/AccountPage.vue'), meta: { requiresAuth: true },
     })),
     { path: '/:pathMatch(.*)*', redirect: '/discover' },
