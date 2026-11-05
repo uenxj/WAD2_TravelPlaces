@@ -36,8 +36,16 @@ const clashes = computed(() =>
   liveConflicts(props.items, form, { ignoreId: props.item?._id, currentUserId: props.currentUserId || undefined }),
 )
 
+// A clash has to be fixed before the activity can be added. When editing, only if the day or time was changed:
+// an activity that already clashed before can still have its title or notes corrected.
+const timeChanged = computed(
+  () => !props.item || form.date !== props.item.date || form.startTime !== props.item.startTime || form.endTime !== props.item.endTime,
+)
+const blocked = computed(() => clashes.value.length > 0 && timeChanged.value)
+
 function submit() {
   localError.value = ''
+  if (blocked.value) return (localError.value = 'This time clashes with another activity. Change the day or time first.')
   if (!form.title.trim()) return (localError.value = 'Enter a title.')
   if (form.endTime <= form.startTime) return (localError.value = 'End time must be after the start time.')
   emit('save', {
@@ -106,13 +114,13 @@ function submit() {
         <ul>
           <li v-for="c in clashes" :key="c.itemId" data-testid="live-conflict">{{ c.message }}</li>
         </ul>
-        <span class="live-hint">You can still add it, or pick a different time.</span>
+        <span class="live-hint">{{ blocked ? 'Change the day or time to continue.' : 'It already overlapped before, so you can still save other changes.' }}</span>
       </div>
 
       <p v-if="localError || serverError" class="form-error" role="alert" data-testid="form-error">{{ localError || serverError }}</p>
 
       <div class="action-row">
-        <button class="primary-action" :disabled="saving" data-testid="save-item-btn">
+        <button class="primary-action" :disabled="saving || blocked" data-testid="save-item-btn">
           {{ saving ? 'Saving…' : item ? 'Save changes' : 'Add to Itinerary' }}
         </button>
         <button type="button" class="secondary-action" @click="emit('close')">Cancel</button>

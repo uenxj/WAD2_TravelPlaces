@@ -112,15 +112,39 @@ test('create, edit and delete an itinerary item', async ({ page }) => {
   await expect(page.getByTestId('empty-day')).toBeVisible()
 })
 
-test('warns when two activities overlap', async ({ page }) => {
+test('shows clashes that already exist (for example two travellers adding at the same moment)', async ({ page }) => {
   await signUp(page)
   await createTrip(page)
-  await addItem(page, { title: 'Museum', start: '10:00', end: '12:00' })
-  await addItem(page, { title: 'Lunch', start: '11:00', end: '13:00' })
+  const tripId = new URL(page.url()).pathname.split('/').pop()
+  const { startDate } = await (await page.request.get(`${API}/api/trips/${tripId}`)).json()
+  for (const [title, startTime, endTime] of [['Museum', '10:00', '12:00'], ['Lunch', '11:00', '13:00']]) {
+    const res = await page.request.post(`${API}/api/trips/${tripId}/items`, { data: { title, date: startDate, startTime, endTime } })
+    expect(res.status()).toBe(201) // the server still saves it and reports the clash
+  }
+  await page.reload()
 
-  await expect(page.getByTestId('conflict-notice')).toContainText('Overlaps with "Museum"')
+  await expect(page.getByTestId('conflict-summary')).toContainText('2 activities have conflicts')
   await expect(page.getByTestId('conflict-message')).toHaveCount(2) // one on each clashing item
-  await expect(page.getByTestId('day-tab').first().locator('.badge')).toHaveText('2')
+  const tab = page.getByTestId('day-tab').first()
+  const badge = tab.locator('.badge')
+  await expect(badge).toHaveText('2')
+
+  // The badge is fully visible: inside its tab and inside the scrolling strip, not cut off.
+  const [b, t, nav] = await Promise.all([badge.boundingBox(), tab.boundingBox(), page.getByTestId('day-tabs').boundingBox()])
+  for (const box of [t, nav]) {
+    expect(b.x).toBeGreaterThanOrEqual(box.x)
+    expect(b.y).toBeGreaterThanOrEqual(box.y)
+    expect(b.x + b.width).toBeLessThanOrEqual(box.x + box.width)
+    expect(b.y + b.height).toBeLessThanOrEqual(box.y + box.height)
+  }
+
+  // An activity that already clashes can still have its title corrected (only changing the time is blocked).
+  await page.getByTestId('edit-item-btn').first().click()
+  await page.getByTestId('item-title-input').fill('Museum visit')
+  await expect(page.getByTestId('save-item-btn')).toBeEnabled()
+  await page.getByTestId('save-item-btn').click()
+  await expect(page.getByTestId('item-modal')).toBeHidden()
+  await expect(page.getByTestId('item-title').first()).toHaveText('Museum visit')
 })
 
 test('rejects an end time before the start time', async ({ page }) => {
@@ -255,6 +279,15 @@ test('the itinerary and its dialogs reflow at 320px with a long trip title', asy
 
 // ---- clashes shown while filling in the form, and "already planned on another day" ----
 
+// After every dialog is closed the page must scroll again (the body is not left with overflow: hidden).
+async function expectPageScrolls(page) {
+  await expect.poll(() => page.evaluate(() => getComputedStyle(document.body).overflow)).not.toBe('hidden')
+  await page.evaluate(() => { document.body.style.minHeight = '3000px' }) // make sure there is something to scroll
+  await page.mouse.wheel(0, 400)
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0)
+  await page.evaluate(() => { document.body.style.minHeight = '' })
+}
+
 async function openAddForm(page, { title = '', start, end } = {}) {
   await page.getByTestId('add-item-btn').click()
   if (title) await page.getByTestId('item-title-input').fill(title)
@@ -291,15 +324,24 @@ test('the form warns about a clash as soon as a start time falls inside an exist
   await noHorizontalOverflow(page)
 })
 
-test('a clash is still allowed: the activity saves and the warning stays on the day', async ({ page }) => {
+test('a clash has to be fixed before the activity can be added', async ({ page }) => {
   await signUp(page)
   await createTrip(page)
   await addItem(page, { title: 'Museum', start: '09:00', end: '11:00' })
   await openAddForm(page, { title: 'Coffee', start: '10:00' })
-  await expect(page.getByTestId('live-conflicts')).toBeVisible()
+  await expect(page.getByTestId('live-conflicts')).toContainText('Change the day or time to continue')
+  await expect(page.getByTestId('save-item-btn')).toBeDisabled()
+  await page.getByTestId('item-title-input').press('Enter') // Enter cannot sneak it through either
+  await expect(page.getByTestId('item-modal')).toBeVisible()
+  await expect(page.getByTestId('item-row')).toHaveCount(1)
+
+  await page.getByTestId('item-start-input').fill('11:00')
+  await expect(page.getByTestId('live-conflicts')).toBeHidden()
+  await expect(page.getByTestId('save-item-btn')).toBeEnabled()
   await page.getByTestId('save-item-btn').click()
   await expect(page.getByTestId('item-modal')).toBeHidden()
-  await expect(page.getByTestId('conflict-notice')).toContainText('Overlaps with "Museum"')
+  await expect(page.getByTestId('item-row')).toHaveCount(2)
+  await expect(page.getByTestId('conflict-notice')).toBeHidden()
 })
 
 test('the form names the travel buddy whose activity it clashes with', async ({ page, browser, baseURL }) => {
@@ -347,6 +389,7 @@ test('adding an activity that is already planned on another day offers to move i
   await page.getByTestId('move-activity-btn').click()
   await expect(prompt).toBeHidden()
   await expect(page.getByTestId('item-modal')).toBeHidden()
+  await expectPageScrolls(page)
 
   // The one activity now lives on day 2 at the new time, with its original title; day 1 is empty again.
   await expect(page.getByTestId('item-row')).toHaveCount(1)
@@ -366,6 +409,7 @@ test('or to duplicate it, which keeps both copies', async ({ page }) => {
   await page.getByTestId('save-item-btn').click()
   await page.getByTestId('duplicate-activity-btn').click()
   await expect(page.getByTestId('duplicate-modal')).toBeHidden()
+  await expectPageScrolls(page)
   await expect(page.getByTestId('item-row')).toHaveCount(1)
   await expect(page.getByTestId('item-row')).toContainText('14:00')
   await page.getByTestId('day-tab').first().click()
