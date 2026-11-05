@@ -30,8 +30,18 @@ console.log(`Budget data: ${process.env.MONGODB_URI ? 'MongoDB' : 'local JSON fi
 const rates = createRateService();
 const app = createApp({ store, rates });
 
+// A real trip's checklist (a trip from the itinerary) is only for that trip's members. Other ids,
+// such as the sample trips (preview-…) and demo-trip, stay open as before.
+async function checklistAccess(req, tripId) {
+  const trip = await itineraryStore.trips.get(tripId);
+  if (!trip) return null;
+  const user = await auth.authenticate(req);
+  if (!user) return { status: 401, error: 'Please log in to continue' };
+  if (!trip.memberIds.includes(user.id)) return { status: 403, error: 'You are not in this trip.' };
+  return null;
+}
 const checklistDb = createChecklistDb({ mongo });
-mountChecklist(app, { db: checklistDb });
+mountChecklist(app, { db: checklistDb, access: checklistAccess });
 checklistDb.collection().then(
   () => console.log('Checklist connected to MongoDB'),
   (err) => console.warn(`Checklist: ${err.message}${err.cause ? ` (${err.cause.message})` : ''}`),

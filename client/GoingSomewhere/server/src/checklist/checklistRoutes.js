@@ -12,9 +12,29 @@ const { isConnectionError } = require('../mongo');
  *   DELETE /api/checklist/:id                    -> 204
  *
  * `db` is the object from createChecklistDb(); tests can pass their own.
+ * `access(req, tripId)` decides who may use a trip's checklist: it resolves to null when allowed,
+ * otherwise to { status, error } (e.g. 401 not signed in, 403 not in the trip). Default: open.
  */
-function createChecklistRouter({ db }) {
+function createChecklistRouter({ db, access = async () => null }) {
   const router = express.Router();
+
+  /** True when the request may use this trip's checklist; otherwise the refusal is already sent. */
+  async function allowed(req, res, tripId) {
+    const denied = await access(req, tripId);
+    if (!denied) return true;
+    res.status(denied.status).json({ error: denied.error });
+    return false;
+  }
+
+  /** The item's tripId when it exists and the request may change it; otherwise a response is sent. */
+  async function itemTrip(req, res, col, _id) {
+    const existing = await col.findOne({ _id }, { projection: { tripId: 1 } });
+    if (!existing) {
+      res.status(404).json({ error: 'Item not found' });
+      return null;
+    }
+    return (await allowed(req, res, existing.tripId)) ? existing.tripId : null;
+  }
 
   function requireTripId(req, res) {
     if (logic.isTripId(req.params.tripId)) return req.params.tripId;
@@ -30,7 +50,7 @@ function createChecklistRouter({ db }) {
 
   router.get('/trips/:tripId/checklist', async (req, res) => {
     const tripId = requireTripId(req, res);
-    if (!tripId) return;
+    if (!tripId || !(await allowed(req, res, tripId))) return;
     const col = await db.collection();
     const docs = await col.find({ tripId }).sort({ createdAt: 1, _id: 1 }).toArray();
     res.json(docs.map(logic.toClient));
@@ -38,7 +58,7 @@ function createChecklistRouter({ db }) {
 
   router.post('/trips/:tripId/checklist', async (req, res) => {
     const tripId = requireTripId(req, res);
-    if (!tripId) return;
+    if (!tripId || !(await allowed(req, res, tripId))) return;
     const v = logic.validateNewItem(req.body);
     if (!v.ok) return res.status(400).json({ error: 'Invalid item', details: v.errors });
 
@@ -58,7 +78,7 @@ function createChecklistRouter({ db }) {
   // left untouched (keeps its done state and edits), so repeating the call is safe.
   router.post('/trips/:tripId/checklist/batch', async (req, res) => {
     const tripId = requireTripId(req, res);
-    if (!tripId) return;
+    if (!tripId || !(await allowed(req, res, tripId))) return;
     const v = logic.validateBatch(req.body);
     if (!v.ok) return res.status(400).json({ error: 'Invalid items', details: v.errors });
 
@@ -99,6 +119,7 @@ function createChecklistRouter({ db }) {
     if (!v.ok) return res.status(400).json({ error: 'Invalid update', details: v.errors });
 
     const col = await db.collection();
+    if (!(await itemTrip(req, res, col, _id))) return;
     const doc = await col.findOneAndUpdate(
       { _id },
       { $set: { ...v.value, updatedAt: new Date() } },
@@ -112,6 +133,7 @@ function createChecklistRouter({ db }) {
     const _id = requireItemId(req, res);
     if (!_id) return;
     const col = await db.collection();
+    if (!(await itemTrip(req, res, col, _id))) return;
     const { deletedCount } = await col.deleteOne({ _id });
     if (!deletedCount) return res.status(404).json({ error: 'Item not found' });
     res.status(204).end();
@@ -139,8 +161,8 @@ function handleChecklistError(err, req, res, next) { // eslint-disable-line no-u
  * The extra error handler covers errors raised before our router runs, such as
  * malformed JSON, but only for checklist URLs so other features are unaffected.
  */
-function mountChecklist(app, { db }) {
-  app.use('/api', createChecklistRouter({ db }));
+function mountChecklist(app, { db, access }) {
+  app.use('/api', createChecklistRouter({ db, access }));
   app.use(['/api/trips/:tripId/checklist', '/api/checklist'], handleChecklistError);
 }
 

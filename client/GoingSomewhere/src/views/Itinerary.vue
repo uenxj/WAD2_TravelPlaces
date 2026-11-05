@@ -191,6 +191,7 @@ onBeforeUnmount(() => clearInterval(timer))
           <p class="muted-copy">{{ trip.destination }} · {{ dateRange(trip.startDate, trip.endDate) }} · {{ memberCount }} traveller{{ memberCount === 1 ? '' : 's' }}</p>
         </div>
         <div class="action-row">
+          <RouterLink class="secondary-action" :to="`/checklist?trip=${trip._id}`" data-testid="packing-link">Packing list</RouterLink>
           <button type="button" class="secondary-action" data-testid="edit-trip-btn" @click="openEditTrip">Edit trip</button>
           <button type="button" class="primary-action" data-testid="add-item-btn" @click="openAdd()">Add activity</button>
         </div>

@@ -52,7 +52,7 @@ test('independent evidence for the same tag counts more, but is capped', () => {
 })
 
 test('example: Japan in December with skiing (destination/weather given as plain inputs)', () => {
-  // In the app these signals will come from the trips and weather features once they exist.
+  // In the app these signals come from the trip and weather features (tripSignals.js).
   const list = suggestionsFor({
     signals: [
       { tag: 'abroad', reason: 'Going abroad: Japan' },
