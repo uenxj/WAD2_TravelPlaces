@@ -253,6 +253,150 @@ test('the itinerary and its dialogs reflow at 320px with a long trip title', asy
   await noHorizontalOverflow(page)
 })
 
+// ---- clashes shown while filling in the form, and "already planned on another day" ----
+
+async function openAddForm(page, { title = '', start, end } = {}) {
+  await page.getByTestId('add-item-btn').click()
+  if (title) await page.getByTestId('item-title-input').fill(title)
+  if (start) await page.getByTestId('item-start-input').fill(start)
+  if (end) await page.getByTestId('item-end-input').fill(end)
+}
+
+test('the form warns about a clash as soon as a start time falls inside an existing activity', async ({ page }) => {
+  await signUp(page)
+  await createTrip(page)
+  await addItem(page, { title: 'Museum', start: '09:00', end: '11:00' })
+
+  await openAddForm(page, { title: 'Coffee' })
+  // The form opens on 09:00-10:00, which already clashes with the museum, so it says so straight away.
+  await expect(page.getByTestId('live-conflicts')).toContainText('Overlaps with "Museum" (09:00-11:00)')
+  await page.getByTestId('item-start-input').fill('12:00')
+  await expect(page.getByTestId('item-end-input')).toHaveValue('13:00') // the end time moved on by itself
+  await expect(page.getByTestId('live-conflicts')).toBeHidden()
+
+  await page.getByTestId('item-start-input').fill('10:00') // inside 09:00-11:00: warns before anything is saved
+  await page.getByTestId('item-end-input').fill('10:30')
+  await expect(page.getByTestId('live-conflicts')).toContainText('Overlaps with "Museum" (09:00-11:00)')
+
+  await page.getByTestId('item-start-input').fill('09:00')
+  await expect(page.getByTestId('live-conflict')).toHaveCount(1)
+
+  await page.getByTestId('item-start-input').fill('11:00') // right after it ends: no clash
+  await expect(page.getByTestId('live-conflicts')).toBeHidden()
+
+  await page.getByTestId('item-start-input').fill('10:00')
+  await expect(page.getByTestId('live-conflicts')).toBeVisible()
+  await page.getByTestId('item-date-input').selectOption({ index: 1 }) // another day is free
+  await expect(page.getByTestId('live-conflicts')).toBeHidden()
+  await noHorizontalOverflow(page)
+})
+
+test('a clash is still allowed: the activity saves and the warning stays on the day', async ({ page }) => {
+  await signUp(page)
+  await createTrip(page)
+  await addItem(page, { title: 'Museum', start: '09:00', end: '11:00' })
+  await openAddForm(page, { title: 'Coffee', start: '10:00' })
+  await expect(page.getByTestId('live-conflicts')).toBeVisible()
+  await page.getByTestId('save-item-btn').click()
+  await expect(page.getByTestId('item-modal')).toBeHidden()
+  await expect(page.getByTestId('conflict-notice')).toContainText('Overlaps with "Museum"')
+})
+
+test('the form names the travel buddy whose activity it clashes with', async ({ page, browser, baseURL }) => {
+  await signUp(page, 'Ava Tan')
+  await createTrip(page)
+  const tripId = new URL(page.url()).pathname.split('/').pop()
+
+  const context = await browser.newContext({ baseURL })
+  const benPage = await context.newPage()
+  const benEmail = await signUp(benPage, 'Ben Lim')
+  await page.getByTestId('member-input').fill(benEmail)
+  await page.getByTestId('add-member-btn').click()
+  await expect(page.getByTestId('member-list')).toContainText('Ben Lim')
+
+  // Ben adds an activity while Ava already has the page open
+  const first = await benPage.request.get(`${API}/api/trips/${tripId}`)
+  const { startDate } = await first.json()
+  const added = await benPage.request.post(`${API}/api/trips/${tripId}/items`, {
+    data: { title: 'Sunrise hike', date: startDate, startTime: '09:00', endTime: '11:00' },
+  })
+  expect(added.status()).toBe(201)
+
+  await openAddForm(page, { title: 'Brunch', start: '10:00' })
+  await expect(page.getByTestId('live-conflicts')).toContainText('Overlaps with "Sunrise hike" (09:00-11:00), added by Ben Lim.')
+  await context.close()
+})
+
+test('adding an activity that is already planned on another day offers to move it', async ({ page }) => {
+  await signUp(page)
+  await createTrip(page)
+  await addItem(page, { title: 'Gardens by the Bay', start: '10:00', end: '12:00' })
+
+  await page.getByTestId('day-tab').nth(1).click()
+  await openAddForm(page, { title: 'gardens by the bay', start: '14:00', end: '15:00' })
+  await page.getByTestId('save-item-btn').click()
+
+  const prompt = page.getByTestId('duplicate-modal')
+  await expect(prompt).toBeVisible()
+  await expect(prompt).toContainText('is already planned on')
+  await expect(page.getByTestId('duplicate-match')).toHaveCount(1)
+  await expect(page.getByTestId('duplicate-match')).toContainText('Day 1')
+  await expect(page.getByTestId('duplicate-match')).toContainText('10:00-12:00')
+  await noHorizontalOverflow(page)
+
+  await page.getByTestId('move-activity-btn').click()
+  await expect(prompt).toBeHidden()
+  await expect(page.getByTestId('item-modal')).toBeHidden()
+
+  // The one activity now lives on day 2 at the new time, with its original title; day 1 is empty again.
+  await expect(page.getByTestId('item-row')).toHaveCount(1)
+  await expect(page.getByTestId('item-title')).toHaveText('Gardens by the Bay')
+  await expect(page.getByTestId('item-row')).toContainText('14:00')
+  await page.getByTestId('day-tab').first().click()
+  await expect(page.getByTestId('empty-day')).toBeVisible()
+})
+
+test('or to duplicate it, which keeps both copies', async ({ page }) => {
+  await signUp(page)
+  await createTrip(page)
+  await addItem(page, { title: 'Gardens by the Bay', start: '10:00', end: '12:00' })
+
+  await page.getByTestId('day-tab').nth(1).click()
+  await openAddForm(page, { title: 'Gardens by the Bay', start: '14:00', end: '15:00' })
+  await page.getByTestId('save-item-btn').click()
+  await page.getByTestId('duplicate-activity-btn').click()
+  await expect(page.getByTestId('duplicate-modal')).toBeHidden()
+  await expect(page.getByTestId('item-row')).toHaveCount(1)
+  await expect(page.getByTestId('item-row')).toContainText('14:00')
+  await page.getByTestId('day-tab').first().click()
+  await expect(page.getByTestId('item-row')).toHaveCount(1)
+  await expect(page.getByTestId('item-row')).toContainText('10:00')
+
+  // A third day now finds both copies and lets you choose which one to move
+  await page.getByTestId('day-tab').nth(2).click()
+  await openAddForm(page, { title: 'Gardens by the Bay', start: '09:00', end: '10:00' })
+  await page.getByTestId('save-item-btn').click()
+  await expect(page.getByTestId('duplicate-match')).toHaveCount(2)
+})
+
+test('"Go back" keeps what was typed, and a same-day repeat is not treated as a duplicate', async ({ page }) => {
+  await signUp(page)
+  await createTrip(page)
+  await addItem(page, { title: 'Gardens by the Bay', start: '10:00', end: '12:00' })
+
+  await page.getByTestId('day-tab').nth(1).click()
+  await openAddForm(page, { title: 'Gardens by the Bay', start: '14:00', end: '15:00' })
+  await page.getByTestId('save-item-btn').click()
+  await page.getByTestId('duplicate-cancel-btn').click()
+  await expect(page.getByTestId('duplicate-modal')).toBeHidden()
+  await expect(page.getByTestId('item-modal')).toBeVisible()
+  await expect(page.getByTestId('item-title-input')).toHaveValue('Gardens by the Bay')
+  await expect(page.getByTestId('item-start-input')).toHaveValue('14:00')
+  await page.getByTestId('item-date-input').selectOption({ index: 0 }) // same day as the existing one
+  await page.getByTestId('item-start-input').fill('13:00')
+  await page.getByTestId('save-item-btn').click()
+  await expect(page.getByTestId('duplicate-modal')).toBeHidden() // no prompt: saved straight away
+  await expect(page.getByTestId('item-row')).toHaveCount(2)
 
 test('a country-only destination shows weather when the primary lookup is unavailable', async ({ page }) => {
   await signUp(page)

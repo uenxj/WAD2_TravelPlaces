@@ -1,12 +1,15 @@
 <script setup>
-import { reactive, ref } from 'vue'
+import { reactive, ref, computed, watch } from 'vue'
 import ModalShell from './ModalShell.vue'
+import { liveConflicts, addMinutes, toMinutes } from '../../itinerary/conflicts.js'
 
 const props = defineProps({
   item: { type: Object, default: null }, // null = adding a new activity
   prefill: { type: Object, default: null }, // a place picked from the suggestions: { id, name, lat, lng, setting }
   defaultDate: { type: String, required: true },
   days: { type: Array, required: true }, // [{ date, label }]
+  items: { type: Array, default: () => [] }, // every activity in the trip, to warn about clashes while typing
+  currentUserId: { type: String, default: '' },
   saving: { type: Boolean, default: false },
   serverError: { type: String, default: '' },
 })
@@ -22,6 +25,16 @@ const form = reactive({
   notes: props.item?.notes ?? '',
 })
 const localError = ref('')
+
+// Keep the end time after the start time: picking a later start moves the end an hour on, so the range stays valid.
+watch(() => form.startTime, (start) => {
+  if (start && toMinutes(form.endTime) <= toMinutes(start)) form.endTime = addMinutes(start, 60)
+})
+
+// Clashes with what is already planned, updated as the day or times change (the server checks again on save).
+const clashes = computed(() =>
+  liveConflicts(props.items, form, { ignoreId: props.item?._id, currentUserId: props.currentUserId || undefined }),
+)
 
 function submit() {
   localError.value = ''
@@ -88,6 +101,14 @@ function submit() {
         <textarea id="item-notes" v-model="form.notes" rows="2" maxlength="1000" data-testid="item-notes-input"></textarea>
       </label>
 
+      <div v-if="clashes.length" class="live-conflicts" role="status" aria-live="polite" data-testid="live-conflicts">
+        <strong>{{ clashes.length === 1 ? 'This time clashes with another activity.' : `This time clashes with ${clashes.length} activities.` }}</strong>
+        <ul>
+          <li v-for="c in clashes" :key="c.itemId" data-testid="live-conflict">{{ c.message }}</li>
+        </ul>
+        <span class="live-hint">You can still add it, or pick a different time.</span>
+      </div>
+
       <p v-if="localError || serverError" class="form-error" role="alert" data-testid="form-error">{{ localError || serverError }}</p>
 
       <div class="action-row">
@@ -123,6 +144,28 @@ function submit() {
   color: var(--travel-text);
   font: inherit;
   resize: vertical;
+}
+
+.live-conflicts {
+  display: grid;
+  gap: .4rem;
+  padding: .75rem 1rem;
+  border: 1px solid #bc7c86;
+  border-radius: .6rem;
+  background: #3c252c;
+  color: #ffd8dc;
+  font-size: .9rem;
+  line-height: 1.5;
+}
+
+.live-conflicts ul {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+.live-hint {
+  color: #e8c4c9;
+  font-size: .8rem;
 }
 
 .form-error {

@@ -10,10 +10,12 @@ import { itineraryApi } from '../itinerary/api.js'
 import { redirectIfSignedOut } from '../itinerary/session.js'
 import { tripDays, dateRange, longDate } from '../itinerary/dates.js'
 import { toConditionsActivity } from '../itinerary/activity.js'
+import { findSameActivity } from '../itinerary/duplicates.js'
 import { currencyForDestination } from '../budget/destinationCurrency.js'
 import ActivityConditions from '../components/ActivityConditions.vue'
 import ActivityCard from '../components/itinerary/ActivityCard.vue'
 import ActivityFormModal from '../components/itinerary/ActivityFormModal.vue'
+import DuplicateActivityModal from '../components/itinerary/DuplicateActivityModal.vue'
 import EditTripModal from '../components/itinerary/EditTripModal.vue'
 import SuggestedPlaces from '../components/itinerary/SuggestedPlaces.vue'
 
@@ -33,6 +35,8 @@ const tripModalOpen = ref(false)
 const savingTrip = ref(false)
 const tripError = ref('')
 const saving = ref(false)
+const pendingItem = ref(null) // what the person is adding while we ask "move or duplicate?"
+const sameActivity = ref([]) // the same activity already planned on other days
 const serverError = ref('')
 const notice = ref(null) // { title, conflicts } shown right after saving something that clashes
 const newMember = ref('')
@@ -122,30 +126,74 @@ function openAdd(place = null) {
   prefillPlace.value = place
   serverError.value = ''
   modalOpen.value = true
+  loadItems() // fresh list, so clashes with what others just added show up in the form
 }
 function openEdit(item) {
   editingItem.value = item
   prefillPlace.value = null
   serverError.value = ''
   modalOpen.value = true
+  loadItems()
 }
 
-async function saveItem(payload) {
+function closeDuplicatePrompt() {
+  pendingItem.value = null
+  sameActivity.value = []
+}
+
+// Runs a save (create, edit or move) and closes the dialogs. A failure keeps the form open with the message.
+async function runSave(action) {
   saving.value = true
   serverError.value = ''
   try {
-    const result = editingItem.value
-      ? await itineraryApi.updateItem(editingItem.value._id, payload)
-      : await itineraryApi.createItem(props.tripId, payload)
+    const result = await action()
     modalOpen.value = false
+    closeDuplicatePrompt()
     selectedDate.value = result.item.date
     notice.value = result.conflicts.length ? { title: result.item.title, conflicts: result.conflicts } : null
     await loadItems()
   } catch (e) {
+    closeDuplicatePrompt()
     fail(e, serverError)
   } finally {
     saving.value = false
   }
+}
+
+async function saveItem(payload) {
+  if (editingItem.value) return runSave(() => itineraryApi.updateItem(editingItem.value._id, payload))
+
+  // Adding: is this already planned on another day? Then ask whether to move it or add a second copy.
+  await loadItems() // others may have just added it
+  const matches = findSameActivity(items.value, payload)
+  if (matches.length) {
+    pendingItem.value = payload
+    sameActivity.value = matches
+    return
+  }
+  return runSave(() => itineraryApi.createItem(props.tripId, payload))
+}
+
+// "Move it": keep the existing activity as it is, but put it on the day and time that was just chosen.
+function moveExisting(existing) {
+  const { date, startTime, endTime } = pendingItem.value
+  return runSave(() =>
+    itineraryApi.updateItem(existing._id, {
+      title: existing.title,
+      type: existing.type,
+      setting: existing.setting,
+      notes: existing.notes,
+      date,
+      startTime,
+      endTime,
+    }),
+  )
+}
+
+// "Duplicate it": add the new copy as chosen.
+function addDuplicate() {
+  const payload = pendingItem.value
+  return runSave(() => itineraryApi.createItem(props.tripId, payload))
 }
 
 async function removeItem(item) {
@@ -199,7 +247,7 @@ let timer
 onMounted(() => {
   init()
   timer = setInterval(() => {
-    if (!modalOpen.value && !tripModalOpen.value && !loading.value) loadItems()
+    if (!tripModalOpen.value && !saving.value && !loading.value) loadItems() // also while the form is open, so clashes stay current
   }, 15000)
 })
 onBeforeUnmount(() => clearInterval(timer))
@@ -321,10 +369,25 @@ onBeforeUnmount(() => clearInterval(timer))
         :prefill="prefillPlace"
         :default-date="selectedDate"
         :days="days"
+        :items="items"
+        :current-user-id="user?.id ?? ''"
         :saving="saving"
         :server-error="serverError"
         @save="saveItem"
         @close="modalOpen = false"
+      />
+
+      <DuplicateActivityModal
+        v-if="pendingItem"
+        :title="pendingItem.title"
+        :date="pendingItem.date"
+        :matches="sameActivity"
+        :days="days"
+        :current-user-id="user?.id ?? ''"
+        :saving="saving"
+        @move="moveExisting"
+        @duplicate="addDuplicate"
+        @cancel="closeDuplicatePrompt"
       />
 
       <EditTripModal v-if="tripModalOpen" :trip="trip" :saving="savingTrip" :server-error="tripError" @save="saveTrip" @close="tripModalOpen = false" />
