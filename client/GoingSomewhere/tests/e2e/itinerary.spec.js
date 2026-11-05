@@ -252,7 +252,11 @@ test('trip dialogs contain keyboard focus and return it to the trigger', async (
   // It must never move focus into the inert application behind the dialog.
   if (await page.evaluate(() => document.activeElement === document.body)) await page.keyboard.press('Tab')
   await expect(dialog.getByRole('button', { name: 'Close', exact: true })).toBeFocused()
-  await page.keyboard.press('Shift+Tab')
+  // await page.keyboard.press('Shift+Tab')
+  // await expect(cancel).toBeFocused()
+    await page.keyboard.press('Shift+Tab')
+  // Same browser-chrome quirk going backwards: Chromium can pass through the browser UI before wrapping
+  if (await page.evaluate(() => document.activeElement === document.body)) await page.keyboard.press('Shift+Tab')
   await expect(cancel).toBeFocused()
   await page.keyboard.press('Escape')
   await expect(dialog).toBeHidden()
@@ -472,6 +476,7 @@ test('an activity with the same name cannot be added twice on one day, and the f
   await page.getByTestId('save-item-btn').click()
   await expect(page.getByTestId('item-modal')).toBeHidden()
   await expect(page.getByTestId('item-row')).toHaveCount(2)
+})
 
 test('a country-only destination shows weather when the primary lookup is unavailable', async ({ page }) => {
   await signUp(page)
@@ -645,4 +650,23 @@ test('a suggested place renamed before adding is a different activity: no "alrea
   await expect(page.getByTestId('item-title')).toHaveText('Evening at the gardens')
   await page.getByTestId('day-tab').first().click()
   await expect(page.getByTestId('item-title')).toHaveText('Gardens by the Bay') // the original is untouched
+})
+
+test('each trip stamp shows the country curved round the ring, and long names still fit', async ({ page }) => {
+  await signUp(page)
+  const names = ['Switzerland', 'São Gonçalo, Rio de Janeiro, Brazil', 'tokyo', 'Kinshasa, Democratic Republic of the Congo']
+  for (const [i, destination] of names.entries()) {
+    const res = await page.request.post(`${API}/api/trips`, { data: { name: `Stamp ${i + 1}`, destination, startDate: ymd(30), endDate: ymd(32) } })
+    expect(res.status()).toBe(201)
+  }
+  await page.goto('/trips')
+  const stamps = page.getByTestId('stamp-mark')
+  await expect(stamps).toHaveCount(4)
+  const texts = await stamps.locator('textPath').allTextContents()
+  expect(texts.sort()).toEqual(['BRAZIL', 'DEMOCRATIC REPUBLIC OF…', 'SWITZERLAND', 'TOKYO'].sort())
+
+  // Every label is shorter than the ring it is written on (a full circle is about 170 units long).
+  const lengths = await page.evaluate(() => [...document.querySelectorAll('[data-testid=stamp-mark] textPath')].map((tp) => tp.getComputedTextLength()))
+  for (const length of lengths) expect(length).toBeLessThan(140)
+  await noHorizontalOverflow(page)
 })
