@@ -59,6 +59,21 @@
     --travel-globe-hint: #9db4cf;
     --travel-globe-atmosphere: #8ecae6;
     --travel-discover-atmosphere: #6fb3ff;
+    --travel-discover-pin: #f0e892;             /* globe pins and their pulsing rings */
+    --travel-discover-pin-hover: #ffffff;
+    /* Destination card: beige in dark mode (the light-mode beige), with a dark-blue button */
+    --travel-discover-card-bg: linear-gradient(180deg, #fffaf0 0%, #f6eedb 55%, #efe3c4 100%);
+    --travel-discover-card-fade: #efe3c4;       /* bottom of the photo blends into the card */
+    --travel-discover-card-text: #2b2417;
+    --travel-discover-card-muted: #62563f;
+    --travel-discover-card-label: #8a5a00;
+    --travel-discover-card-link: #2d6a5c;
+    --travel-discover-card-chip: #efe3c4;       /* close button */
+    --travel-discover-card-chip-text: #2b2417;
+    --travel-discover-cta-bg: #0d1a33;          /* dark blue button */
+    --travel-discover-cta-text: #f6eedb;        /* beige text */
+    --travel-discover-cta-hover: #1c3561;
+    --travel-discover-cta-border: #b8955a;      /* gold outline around the button */
     --travel-particle: 225 241 255;
     /* status: danger (red), error (checklist red), warning (amber), gold, caution, info (mint) */
     --travel-danger: #e5736b;
@@ -137,6 +152,21 @@
     --travel-globe-hint: #62563f;
     --travel-globe-atmosphere: #6f9fc4;
     --travel-discover-atmosphere: #6f9fc4;
+    --travel-discover-pin: #7dffff;             /* deeper amber so the pins read on cream */
+    --travel-discover-pin-hover: #d7bc89;
+    /* Destination card: dark blue in light mode, with a beige button */
+    --travel-discover-card-bg: linear-gradient(180deg, #1c3561 0%, #142036 55%, #0d1a33 100%);
+    --travel-discover-card-fade: #142036;
+    --travel-discover-card-text: #f6eedb;       /* beige text */
+    --travel-discover-card-muted: #cfc3a6;
+    --travel-discover-card-label: #ffd27f;
+    --travel-discover-card-link: #b9ddd2;
+    --travel-discover-card-chip: #1c3561;
+    --travel-discover-card-chip-text: #f6eedb;
+    --travel-discover-cta-bg: #f1e6cc;          /* beige button */
+    --travel-discover-cta-text: #0d1a33;
+    --travel-discover-cta-hover: #fffaf0;
+    --travel-discover-cta-border: #ffd27f;      /* gold outline around the button */
     --travel-particle: 128 160 190;
     --travel-danger: #a63d35;
     --travel-on-danger: #fff;
