@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue'
+import TrashButton from '../TrashButton.vue'
 import { SETTING_LABELS, TYPE_LABELS } from '../../itinerary/activity.js'
 
 const props = defineProps({ item: { type: Object, required: true } })
@@ -35,7 +36,7 @@ const hasWarning = computed(() => !hasError.value && props.item.conflicts.length
 
       <div class="action-row activity-actions">
         <button type="button" class="chip-button" data-testid="edit-item-btn" @click="emit('edit', item)">Edit</button>
-        <button type="button" class="chip-button danger" data-testid="delete-item-btn" @click="emit('delete', item)">Delete</button>
+        <TrashButton :label="`Delete activity ${item.title}`" data-testid="delete-item-btn" @click="emit('delete', item)" />
       </div>
     </div>
   </li>
@@ -138,7 +139,7 @@ const hasWarning = computed(() => !hasError.value && props.item.conflicts.length
 
 .activity-actions {
   margin-top: .9rem;
-  gap: .5rem;
+  gap: .25rem;
 }
 
 .chip-button {
@@ -156,10 +157,6 @@ const hasWarning = computed(() => !hasError.value && props.item.conflicts.length
   color: var(--travel-text);
 }
 
-.chip-button.danger:hover {
-  border-color: var(--travel-danger-border);
-  color: var(--travel-danger-text);
-}
 
 @media (max-width: 500px) {
   .activity {

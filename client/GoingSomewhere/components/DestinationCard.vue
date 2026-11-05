@@ -1,5 +1,6 @@
 <script setup>
 import { ref, watch } from 'vue'
+import PlaneLoader from '../src/components/PlaneLoader.vue'
 import { user } from '../src/services/auth.js'
 import { getCurrentTemperature } from '../src/weather/api.js'
 
@@ -54,9 +55,8 @@ watch(
         <p class="text">{{ props.destination.description }}</p>
 
         <h4 class="label">Current temperature</h4>
-        <p class="text">
-          {{ weather ?? (weatherFailed ? 'Unavailable' : 'Loading…') }}
-        </p>
+        <PlaneLoader v-if="weather === null && !weatherFailed" compact class="temperature-loader" label="Loading temperature…" />
+        <p v-else class="text">{{ weather ?? 'Unavailable' }}</p>
         <RouterLink class="weather-link" :to="{ path: '/weather', query: { destination: props.destination.id } }">Check
           weather &amp; air quality for your dates →</RouterLink>
 
@@ -79,6 +79,8 @@ watch(
 </template>
 
 <style scoped>
+.temperature-loader { --plane-loader-color: #1b1b1b; --plane-loader-label-color: #1b1b1b; font-family: system-ui, sans-serif; margin-bottom: .75rem; }
+
 .weather-link {
   display: inline-block;
   color: #163c55;

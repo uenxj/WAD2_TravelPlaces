@@ -37,6 +37,7 @@ export const itineraryApi = {
   listTrips: () => request('/trips'),
   createTrip: (trip) => request('/trips', { method: 'POST', body: trip }),
   getTrip: (tripId) => request(`/trips/${encodeURIComponent(tripId)}`),
+  resolveTripLocation: (tripId) => request(`/trips/${encodeURIComponent(tripId)}/location`, { method: 'POST' }),
   updateTrip: (tripId, trip) => request(`/trips/${encodeURIComponent(tripId)}`, { method: 'PUT', body: trip }),
   deleteTrip: (tripId) => request(`/trips/${encodeURIComponent(tripId)}`, { method: 'DELETE' }),
   addMember: (tripId, email) => request(`/trips/${encodeURIComponent(tripId)}/members`, { method: 'POST', body: { email } }),

@@ -1,5 +1,6 @@
 <script setup>
 import BackLink from '../components/BackLink.vue'
+import PlaneLoader from '../components/PlaneLoader.vue'
 // One real trip: its days, activities (with conflict warnings), suggested places, travellers and the
 // weather module's conditions. Route: /trips/:tripId. Only people in the trip can open it.
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
@@ -38,6 +39,8 @@ const newMember = ref('')
 const memberMessage = ref('')
 const memberFailed = ref(false)
 const conditionsVersion = ref(0) // bumped when the day summary refreshes, so each activity's panel re-checks too
+const resolvingLocation = ref(false)
+const locationError = ref('')
 
 const days = computed(() => (trip.value ? tripDays(trip.value) : []))
 const dayIndex = computed(() => days.value.findIndex((d) => d.date === selectedDate.value))
@@ -83,11 +86,30 @@ async function loadItems() {
   }
 }
 
+async function resolveLocation() {
+  if (resolvingLocation.value) return
+  resolvingLocation.value = true
+  locationError.value = ''
+  try {
+    trip.value = await itineraryApi.resolveTripLocation(props.tripId)
+    await loadItems()
+  } catch (e) {
+    if (e.status === 404 && e.message === 'Request failed (404)') {
+      locationError.value = 'Location lookup could not be refreshed. Open Edit trip, choose a destination, and save to try again.'
+    } else {
+      fail(e, locationError)
+    }
+  } finally {
+    resolvingLocation.value = false
+  }
+}
+
 async function init() {
   try {
     trip.value = await itineraryApi.getTrip(props.tripId)
     selectedDate.value = trip.value.startDate
     await loadItems()
+    if (!trip.value.center || !trip.value.timezone) resolveLocation()
   } catch (e) {
     fail(e)
   } finally {
@@ -185,7 +207,7 @@ onBeforeUnmount(() => clearInterval(timer))
 
 <template>
   <main class="content-page">
-    <p v-if="loading" class="muted-copy" role="status">Loading itinerary…</p>
+    <PlaneLoader v-if="loading" label="Loading itinerary…" />
 
     <section v-else-if="pageError && !trip" class="surface" role="alert">
       <h1 class="error-heading">We couldn’t open this trip</h1>
@@ -196,15 +218,12 @@ onBeforeUnmount(() => clearInterval(timer))
     <template v-else-if="trip">
       <BackLink to="/trips">Back to My Trips</BackLink>
       <div class="page-top">
-        <div class="trip-heading">
-          <p class="eyebrow">Group trip</p>
-          <div class="trip-title-row">
+        <div class="trip-title-row">
             <h1 class="page-heading" data-testid="trip-title">{{ trip.name }}</h1>
             <button type="button" class="secondary-action trip-edit" data-testid="edit-trip-btn" @click="openEditTrip">Edit trip</button>
-          </div>
-          <p class="muted-copy">{{ trip.destination }} · {{ dateRange(trip.startDate, trip.endDate) }} · {{ memberCount }} traveller{{ memberCount === 1 ? '' : 's' }}</p>
         </div>
-        <div class="action-row">
+        <p class="muted-copy trip-meta">{{ trip.destination }} · {{ dateRange(trip.startDate, trip.endDate) }} · {{ memberCount }} traveller{{ memberCount === 1 ? '' : 's' }}</p>
+        <div class="action-row trip-actions">
           <RouterLink class="secondary-action" :to="`/checklist?trip=${trip._id}`" data-testid="packing-link">Packing list</RouterLink>
           <RouterLink class="secondary-action" :to="budgetLink" data-testid="budget-link">Budget</RouterLink>
           <button type="button" class="primary-action" data-testid="add-item-btn" @click="openAdd()">Add activity</button>
@@ -243,10 +262,18 @@ onBeforeUnmount(() => clearInterval(timer))
               :activities="dayActivities"
               :trip-id="trip._id"
               @refreshed="conditionsVersion++"
-            />
+            >
+              <template v-if="trip.destinationScope === 'country'" #after-header>
+                <p class="muted-copy small-copy location-context">Weather is for a representative location in {{ trip.destination }}. Choose a city in Edit trip for more local conditions.</p>
+              </template>
+            </ActivityConditions>
             <template v-else>
               <p class="eyebrow day-label">{{ dayHeading }}</p>
-              <p class="muted-copy">Weather and air quality appear once the destination can be found on the map. Try “City, Country” in Edit trip.</p>
+              <PlaneLoader v-if="resolvingLocation" compact label="Finding your destination for weather and air quality…" />
+              <template v-else>
+                <p class="muted-copy" :role="locationError ? 'alert' : undefined">{{ locationError || 'The destination lookup is unavailable. Retry, or choose a city and country in Edit trip.' }}</p>
+                <button type="button" class="secondary-action small" @click="resolveLocation">Retry location</button>
+              </template>
             </template>
           </div>
 
@@ -307,16 +334,20 @@ onBeforeUnmount(() => clearInterval(timer))
 
 <style scoped>
 .page-top {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 1rem;
+  gap: .5rem 1.5rem;
   margin: 1rem 0 2rem;
 }
 
-.trip-heading { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
-.trip-title-row { display: flex; align-items: center; gap: 1rem; margin-bottom: .5rem; }
+.trip-title-row { display: flex; align-items: center; gap: 1rem; min-width: 0; grid-column: 1; grid-row: 1; }
+.trip-meta { grid-column: 1 / -1; grid-row: 2; margin: 0; }
+.trip-actions { grid-column: 2; grid-row: 1; }
+@media (max-width: 900px) {
+  .page-top { grid-template-columns: minmax(0, 1fr); }
+  .trip-actions { grid-column: 1; grid-row: 3; margin-top: .5rem; }
+}
 .trip-title-row h1 { min-width: 0; margin: 0; }
 .trip-edit { flex-shrink: 0; white-space: nowrap; }
 .day-label { text-transform: none; letter-spacing: .02em; }
@@ -425,6 +456,8 @@ onBeforeUnmount(() => clearInterval(timer))
   gap: 1.5rem;
   align-items: start;
 }
+
+.location-context { margin-bottom: 1rem; }
 
 .day-overview {
   margin-bottom: 1.25rem;

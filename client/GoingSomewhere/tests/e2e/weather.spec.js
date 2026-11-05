@@ -155,7 +155,8 @@ test('overnight conditions do not flag daytime plans, and indoor settings remove
   await expect(summary.getByText(/Tokyo · 02:00–04:00: Thunderstorms forecast/)).toBeVisible()
   await page.getByLabel('Activity setting').selectOption('indoor')
   await expect(summary.getByRole('list', { name: 'Day planning advice' })).toHaveCount(0)
-  await expect(summary.getByText('All activities are indoors.', { exact: false })).toBeVisible()
+  await expect(summary.getByText('All activities are indoors.', { exact: false })).toHaveCount(0)
+  await expect(summary.locator('.planning-coverage')).toHaveCount(0)
 })
 
 test('editing a sample activity automatically surfaces its schedule conflict alongside budget checks', async ({ page }) => {

@@ -1,5 +1,7 @@
 <script>
 import TripBackLink from '../components/TripBackLink.vue'
+import TrashButton from '../components/TrashButton.vue'
+import PlaneLoader from '../components/PlaneLoader.vue'
 
 const API = '/api'
 
@@ -22,7 +24,7 @@ async function api(path, options = {}) {
 
 export default {
     name: 'BudgetPlanner',
-    components: { TripBackLink },
+    components: { TripBackLink, TrashButton, PlaneLoader },
     props: {
         tripId: { type: String, default: '' },
         destinationCurrency: { type: String, default: 'JPY' },
@@ -215,7 +217,7 @@ export default {
 
             <div v-if="toast" class="alert alert-danger budget-error" role="alert" data-testid="error"><span>{{ toast }}</span><button type="button" class="btn remove-category" aria-label="Dismiss error" @click="toast = ''">×</button></div>
 
-            <div v-if="loading" class="text-muted">Loading…</div>
+            <PlaneLoader v-if="loading" label="Loading budget…" :compact="embedded" />
 
             <!-- ============ SETUP ============ -->
             <section v-else-if="!summary || editingBudget" class="card card-body" data-testid="setup">
@@ -353,9 +355,9 @@ export default {
                 </section>
 
                 <!-- categories -->
-                <section class="mb-3">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h2 class="h6 mb-2">Categories</h2>
+                <section class="mb-4 budget-categories">
+                    <div class="categories-heading">
+                        <h2 class="h6 mb-0">Categories</h2>
                         <button class="btn btn-sm btn-outline-secondary" @click="startEdit"
                             data-testid="edit-budget">Edit budget</button>
                     </div>
@@ -396,10 +398,9 @@ export default {
                                     {{ e.amount.toFixed(2) }} {{ e.currency }} @ {{ e.rateUsed.toFixed(4) }}
                                 </div>
                             </div>
-                            <div class="text-end">
+                            <div class="expense-actions">
                                 <div>{{ fmt(e.amountHome) }}</div>
-                                <button class="btn btn-sm btn-link text-danger p-0" @click="removeExpense(e)"
-                                    :data-testid="'delete-' + e.id">Delete</button>
+                                <TrashButton label="Delete expense" @click="removeExpense(e)" :data-testid="'delete-' + e.id" />
                             </div>
                         </li>
                     </ul>
@@ -436,6 +437,8 @@ export default {
 .form-control, .form-select { min-width: 0; min-height: 44px; padding: .65rem .8rem; background-color: var(--travel-bg); color: var(--travel-text); border: 1px solid var(--travel-control-border); border-radius: .65rem; --bs-form-select-bg-img: var(--travel-select-arrow); }
 .form-control::placeholder { color: var(--travel-muted); opacity: 1; }
 .form-control:focus, .form-select:focus { color: var(--travel-text); background-color: var(--travel-bg); border-color: var(--travel-accent); box-shadow: none; }
+.budget-categories { margin-top: .5rem; }
+.categories-heading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: .75rem; margin-bottom: 1.25rem; }
 .budget-category-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .65fr) 44px; max-width: 650px; gap: .65rem; align-items: center; margin-bottom: .65rem; }
 .btn { min-height: 40px; padding: .55rem 1rem; border-radius: 999px; font-weight: 600; }
 .btn-sm { min-height: 36px; font-size: .8rem; }
@@ -456,6 +459,7 @@ export default {
 .list-group-item { padding: 1rem; gap: 1rem; flex-wrap: wrap; border-radius: .85rem; }
 .list-group-item + .list-group-item { border-top-width: 1px; }
 .list-group-item:first-child, .list-group-item:last-child { border-radius: .85rem; }
+.expense-actions { display: flex; align-items: center; gap: .25rem; }
 .expense-history > .d-flex, section > .d-flex { flex-wrap: wrap; gap: .75rem; }
 .budget-page.embedded { min-height: auto; }
 .embedded .budget-container { max-width: none; padding: 0; }

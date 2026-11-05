@@ -2,6 +2,7 @@
 import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import TripBackLink from '../components/TripBackLink.vue'
+import PlaneLoader from '../components/PlaneLoader.vue'
 import ChecklistItem from '../../components/checklist/ChecklistItem.vue'
 import QuickPack from '../../components/checklist/QuickPack.vue'
 import EssentialsAlert from '../../components/checklist/EssentialsAlert.vue'
@@ -561,11 +562,7 @@ loadTrip()
       </Transition>
 
       <!-- Loading -->
-      <div v-if="status === 'loading'" class="row g-3" aria-busy="true" aria-label="Loading checklist">
-        <div class="col-12 col-md-6" v-for="n in 4" :key="n">
-          <div class="sheet skeleton"></div>
-        </div>
-      </div>
+      <PlaneLoader v-if="status === 'loading'" label="Loading packing list…" :compact="embedded" />
 
       <!-- Error -->
       <div v-else-if="status === 'error'" class="sheet error-sheet" role="alert" data-testid="error">
@@ -1304,18 +1301,6 @@ loadTrip()
   background: var(--travel-panel);
 }
 
-.skeleton {
-  height: 160px;
-  background: linear-gradient(90deg, var(--travel-panel) 0%, var(--travel-skeleton-hi) 50%, var(--travel-panel) 100%) 0 0 / 200% 100%;
-  animation: shimmer 1.4s linear infinite;
-}
-
-@keyframes shimmer {
-  to {
-    background-position: -200% 0;
-  }
-}
-
 .error-sheet {
   border-color: var(--travel-error-border);
 }
@@ -1791,7 +1776,6 @@ loadTrip()
 
 @media (prefers-reduced-motion: reduce) {
 
-  .skeleton,
   .stamp-enter-active,
   .pass-enter-active,
   .final-call .primary-action,

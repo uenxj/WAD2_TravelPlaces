@@ -63,7 +63,7 @@ const shortDate = date => new Intl.DateTimeFormat('en', { month: 'short', day: '
     <template v-if="previewMode && tripDetail">
       <BackLink to="/trips">Back to My Trips</BackLink>
       <div class="page-top mt-4">
-        <div><p class="eyebrow">Sample group trip</p><h1 class="page-heading">{{ selectedTrip.name }}</h1><p class="muted-copy">{{ selectedTrip.place }} · {{ selectedTrip.dates }} · {{ selectedTrip.members }}</p></div>
+        <div><h1 class="page-heading">{{ selectedTrip.name }}</h1><p class="muted-copy">{{ selectedTrip.place }} · {{ selectedTrip.dates }} · {{ selectedTrip.members }}</p></div>
         <span class="sample-badge">Preview trip</span>
       </div>
       <nav class="trip-tabs" aria-label="Trip sections">
@@ -119,7 +119,7 @@ const shortDate = date => new Intl.DateTimeFormat('en', { month: 'short', day: '
     </template>
     <template v-else>
       <div class="page-top">
-        <div><p class="eyebrow">{{ route.path === '/trips' ? 'Your next adventures' : 'Your travel space' }}</p><h1 class="page-heading">{{ title }}</h1></div>
+        <div><h1 class="page-heading">{{ title }}</h1></div>
       </div>
       <form v-if="route.path === '/trips/new'" class="surface form-stack trip-form" @submit.prevent>
         <label for="trip-name">Trip name<input id="trip-name" v-model="tripName" placeholder="Our next adventure" required /></label>

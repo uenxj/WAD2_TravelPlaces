@@ -216,7 +216,7 @@ test('trip budget saves expenses, converts currency, reloads and keeps trips sep
   await page.getByRole('link', { name: 'View trip →' }).first().click()
   await page.getByRole('button', { name: 'Budget', exact: true }).click()
   page.once('dialog', dialog => dialog.accept())
-  await page.getByRole('button', { name: 'Delete', exact: true }).click()
+  await page.getByRole('button', { name: 'Delete expense', exact: true }).click()
   await expect(page.getByTestId('spent')).toHaveText('SGD 0.00')
   await expect(page.getByTestId('empty')).toBeVisible()
   await noHorizontalOverflow(page)

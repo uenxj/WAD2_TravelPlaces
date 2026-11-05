@@ -1,5 +1,6 @@
 <script setup>
 import BackLink from '../components/BackLink.vue'
+import PlaneLoader from '../components/PlaneLoader.vue'
 import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { COUNTRIES } from '@/data/countries.js'
@@ -641,12 +642,10 @@ onBeforeUnmount(() => {
                             </div>
 
                             <div class="facts">
-                                <template v-if="detailsLoading">
-                                    <div v-for="n in 3" :key="n" class="fact"><span class="shimmer w40"></span><span class="shimmer w80"></span></div>
-                                </template>
+                                <PlaneLoader v-if="detailsLoading" compact class="game-facts-loader" label="Loading country details…" />
                                 <div v-for="f in factList" :key="f.label" class="fact">
                                     <span class="fact-label">{{ f.label }}</span>
-                                    <span v-if="f.loading" class="shimmer w80"></span>
+                                    <PlaneLoader v-if="f.loading" compact class="game-loader" label="Loading weather…" />
                                     <span v-else class="fact-value">{{ f.value }}</span>
                                 </div>
                             </div>
@@ -817,13 +816,13 @@ button:focus-visible, a:focus-visible, .map-toggle button:focus-visible { outlin
 .flag-img { height: 56px; width: auto; border-radius: 6px; box-shadow: 0 0 0 1px rgba(0, 0, 0, .12); }
 .flag-emoji { font-size: 3rem; line-height: 1; }
 
+.game-loader, .game-facts-loader { --plane-loader-color: var(--sea); --plane-loader-label-color: var(--muted); }
+.game-facts-loader { grid-column: 1 / -1; }
 .facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: .6rem; }
 .fact { background: var(--sky); border-radius: 12px; padding: .7rem .9rem; display: flex; flex-direction: column; gap: .25rem; }
 .fact-label { font-size: .8rem; color: var(--muted); }
 .fact-value { font-weight: 500; }
-.shimmer { display: block; height: 14px; border-radius: 6px; background: linear-gradient(90deg, #d5e3ef 25%, #eaf2f9 50%, #d5e3ef 75%); background-size: 200% 100%; animation: shimmer 1.2s linear infinite; }
-.w40 { width: 40%; } .w80 { width: 80%; }
-@keyframes shimmer { to { background-position: -200% 0; } }
+
 
 .blurb { margin: 1rem 0 0; line-height: 1.6; max-width: 62ch; }
 
