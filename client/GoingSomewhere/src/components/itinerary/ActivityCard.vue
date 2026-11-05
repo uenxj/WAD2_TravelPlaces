@@ -50,11 +50,11 @@ const hasWarning = computed(() => !hasError.value && props.item.conflicts.length
 }
 
 .activity.has-warning {
-  border-left-color: #e8b04b;
+  border-left-color: var(--travel-warn);
 }
 
 .activity.has-error {
-  border-left-color: #e5736b;
+  border-left-color: var(--travel-danger);
 }
 
 .activity-time {
@@ -94,8 +94,8 @@ const hasWarning = computed(() => !hasError.value && props.item.conflicts.length
   display: inline-flex;
   padding: .35rem .8rem;
   border-radius: 999px;
-  background: #29473f;
-  color: #cce9df;
+  background: var(--travel-selected);
+  color: var(--travel-selected-text);
   font-size: .8rem;
 }
 
@@ -122,18 +122,18 @@ const hasWarning = computed(() => !hasError.value && props.item.conflicts.length
 
 .conflicts li {
   padding: .55rem .8rem;
-  border: 1px solid #9c854b;
+  border: 1px solid var(--travel-warn-border);
   border-radius: .6rem;
-  background: #332d22;
-  color: #ffedbf;
+  background: var(--travel-warn-bg);
+  color: var(--travel-warn-text);
   font-size: .85rem;
   line-height: 1.5;
 }
 
 .conflicts li.error {
-  border-color: #bc7c86;
-  background: #3c252c;
-  color: #ffd8dc;
+  border-color: var(--travel-danger-border);
+  background: var(--travel-danger-bg);
+  color: var(--travel-danger-text);
 }
 
 .activity-actions {
@@ -143,7 +143,7 @@ const hasWarning = computed(() => !hasError.value && props.item.conflicts.length
 
 .chip-button {
   padding: .3rem .8rem;
-  border: 1px solid var(--travel-border);
+  border: 1px solid var(--travel-action-border);
   border-radius: 999px;
   background: transparent;
   color: var(--travel-muted);
@@ -157,8 +157,8 @@ const hasWarning = computed(() => !hasError.value && props.item.conflicts.length
 }
 
 .chip-button.danger:hover {
-  border-color: #bc7c86;
-  color: #ffd8dc;
+  border-color: var(--travel-danger-border);
+  color: var(--travel-danger-text);
 }
 
 @media (max-width: 500px) {

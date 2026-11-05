@@ -131,8 +131,8 @@ async function submit() {
 }
 
 .auth-switch button[aria-pressed="true"] {
-  background: #354d51;
-  color: #fff;
+  background: var(--travel-strong);
+  color: var(--travel-on-strong);
 }
 
 .password-field {

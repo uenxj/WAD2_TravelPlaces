@@ -167,7 +167,7 @@ onBeforeUnmount(() => {
   display: grid;
   place-items: center;
   padding: 1rem;
-  background: rgba(6, 11, 22, 0.78);
+  background: var(--travel-backdrop-strong);
   backdrop-filter: blur(4px);
 }
 
@@ -207,7 +207,7 @@ onBeforeUnmount(() => {
   height: 4px;
   margin-top: 1rem;
   border-radius: 2px;
-  background: #2a3a52;
+  background: var(--travel-track);
   overflow: hidden;
 }
 
@@ -239,7 +239,7 @@ onBeforeUnmount(() => {
   padding: 1.75rem 1.25rem;
   border: 1px solid var(--travel-border);
   border-radius: 1rem;
-  background: linear-gradient(160deg, #1d3a3c 0%, #19273d 70%);
+  background: linear-gradient(160deg, var(--travel-panel-alt) 0%, var(--travel-panel) 70%);
   text-align: center;
   touch-action: pan-y;
   user-select: none;
@@ -257,7 +257,7 @@ onBeforeUnmount(() => {
 }
 
 .qp-card.lean-skip {
-  border-color: #f2c879;
+  border-color: var(--travel-gold);
 }
 
 .qp-icon {
@@ -266,7 +266,7 @@ onBeforeUnmount(() => {
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  background: #354d51;
+  background: var(--travel-strong);
   color: var(--travel-accent);
   margin-bottom: 0.35rem;
 }
@@ -337,8 +337,8 @@ onBeforeUnmount(() => {
 
 .qp-tag.reason {
   border: 0;
-  background: #29473f;
-  color: #cce9df;
+  background: var(--travel-selected);
+  color: var(--travel-selected-text);
 }
 
 .qp-summary {
@@ -369,7 +369,7 @@ onBeforeUnmount(() => {
 
 .qp-lean.skip {
   right: 1rem;
-  color: #f2c879;
+  color: var(--travel-gold);
   transform: rotate(10deg);
 }
 
@@ -394,7 +394,7 @@ onBeforeUnmount(() => {
 
 kbd {
   padding: 0 0.35rem;
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  border: 1px solid rgb(var(--travel-text-rgb) / 0.25);
   border-radius: 4px;
   background: transparent;
   color: inherit;

@@ -44,9 +44,9 @@ const open = computed(() =>
 .forget {
   margin-bottom: 1.25rem;
   padding: 1rem 1.25rem;
-  border: 1px solid #b8955a;
+  border: 1px solid var(--travel-gold-border);
   border-radius: 1.25rem;
-  background: linear-gradient(120deg, #2b2a2c 0%, #19273d 70%);
+  background: linear-gradient(120deg, var(--travel-warn-panel) 0%, var(--travel-panel) 70%);
 }
 
 .forget-head {
@@ -62,6 +62,7 @@ const open = computed(() =>
   width: 32px;
   height: 32px;
   border-radius: 50%;
+  /* A gold badge with navy ink: readable on navy and on cream, so the same in both themes. */
   background: #f2c879;
   color: #101a2e;
   font-weight: 800;
@@ -95,12 +96,12 @@ const open = computed(() =>
   padding: 0.3rem 0.35rem 0.3rem 0.85rem;
   border: 1px solid var(--travel-border);
   border-radius: 999px;
-  background: rgba(16, 26, 46, 0.6);
+  background: rgb(var(--travel-bg-rgb) / 0.6);
 }
 
 .forget-item.missing {
   border-style: dashed;
-  border-color: #b8955a;
+  border-color: var(--travel-gold-border);
 }
 
 .f-name {
@@ -110,7 +111,7 @@ const open = computed(() =>
 
 .f-state {
   font-size: 0.72rem;
-  color: #f2c879;
+  color: var(--travel-gold);
 }
 
 .f-btn {
@@ -125,8 +126,8 @@ const open = computed(() =>
 }
 
 .f-btn:hover:not(:disabled) {
-  background: #354d51;
-  color: #fff;
+  background: var(--travel-strong);
+  color: var(--travel-on-strong);
 }
 
 .f-btn:disabled {
