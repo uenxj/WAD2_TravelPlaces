@@ -15,12 +15,17 @@ async function findDestinations() {
     resultsPanel.value?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'start' })
   }
 }
-const recommendations = computed(() => {
-  const interests = { culture: ['paris', 'cairo', 'tokyo'], nature: ['cape-town', 'sydney', 'rio'], city: ['nyc', 'singapore', 'tokyo'] }
-  const regions = { asia: ['tokyo', 'singapore'], europe: ['paris'], africa: ['cairo', 'cape-town'], americas: ['nyc', 'rio'], oceania: ['sydney'] }
-  const relaxed = ['sydney', 'cape-town', 'rio']
-  return DESTINATIONS.map(d => ({ ...d, score: (interests[interest.value]?.includes(d.id) ? 3 : 0) + (regions[region.value]?.includes(d.id) ? 4 : 0) + ((pace.value === 'relaxed') === relaxed.includes(d.id) ? 1 : 0) })).sort((a,b) => b.score - a.score).slice(0,3)
-})
+// Filter by region first, then rank what's left by interest and pace.
+const recommendations = computed(() =>
+  DESTINATIONS
+    .filter(d => region.value === 'any' || d.region === region.value)
+    .map(d => ({
+      ...d,
+      score: (d.interests?.includes(interest.value) ? 3 : 0) + ((pace.value === 'relaxed') === !!d.relaxed ? 1 : 0)
+    }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3)
+)
 </script>
 <template>
   <main class="content-page quiz-page">
@@ -41,6 +46,7 @@ const recommendations = computed(() => {
       <button class="primary-action" type="submit">Find my destinations</button>
     </form>
     <section v-if="submitted" ref="resultsPanel" class="quiz-results" aria-label="Recommended destinations" tabindex="-1">
+      <p v-if="!recommendations.length" class="surface muted-copy no-results">No destinations in this region yet. Try another region.</p>
       <div class="recommendations">
         <article v-for="d in recommendations" :key="d.id" class="surface">
           <div class="result-heading"><h3>{{ d.city }}</h3><span class="muted-copy">{{ d.country }}</span></div>
@@ -62,6 +68,7 @@ const recommendations = computed(() => {
 .quiz-results { min-width: 0; scroll-margin-top: 1rem; }
 .quiz-results:focus-visible { outline: 2px solid var(--travel-accent); outline-offset: 5px; border-radius: .2rem; }
 .recommendations { display: grid; gap: .75rem; }
+.no-results { padding: 1rem 1.25rem; margin: 0; }
 .recommendations article { padding: 1rem 1.25rem; }
 .result-heading { display: flex; align-items: baseline; flex-wrap: wrap; gap: .35rem .75rem; }
 .result-heading h3 { font-size: 1.15rem; margin: 0; }
