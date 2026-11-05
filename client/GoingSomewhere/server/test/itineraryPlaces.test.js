@@ -160,17 +160,19 @@ test('a single name like "Kyoto" is limited to the city just like "Kyoto, Japan"
   assert.deepEqual(places.map((p) => p.name), ['Kinkaku-ji'])
 })
 
-test('a country on its own searches the whole country and is not cut to its outline', async () => {
+test('a country is searched by bounding box, then cut to its outline so neighbouring countries are dropped', async () => {
+  // stand-in outline for Switzerland; Annecy (France) is inside the country's bounding box but outside its outline
+  const swiss = { type: 'Polygon', coordinates: [[[7, 46], [10, 46], [10, 47.5], [7, 47.5], [7, 46]]] }
   globalThis.fetch = async (url) => {
     calls.push(String(url))
     if (String(url).includes('nominatim')) {
-      return Response.json([{ display_name: 'Japan', importance: 1, place_rank: 4, lat: '36', lon: '138', boundingbox: ['24', '46', '122', '146'], geojson: square }])
+      return Response.json([{ display_name: 'Switzerland', importance: 1, place_rank: 4, lat: '46.8', lon: '8.2', boundingbox: ['45.8', '47.8', '5.9', '10.5'], geojson: swiss }])
     }
-    return Response.json([placeAt('a', 'Kinkaku-ji', 7, 35.04, 135.73), placeAt('b', 'Sapporo Clock Tower', 6, 43.06, 141.35)])
+    return Response.json([placeAt('a', 'Chapel Bridge', 7, 47.05, 8.31), placeAt('b', 'Annecy Old Town', 7, 45.9, 6.12)])
   }
-  const { places } = await getTopPlaces('Japan')
+  const { places } = await getTopPlaces('Switzerland')
   assert.match(calls[1], /\/places\/bbox\?/)
-  assert.equal(places.length, 2)
+  assert.deepEqual(places.map((p) => p.name), ['Chapel Bridge'])
 })
 
 test('prefers a city over a station or shop that shares its name', async () => {
