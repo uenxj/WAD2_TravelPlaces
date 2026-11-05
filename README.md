@@ -2,9 +2,11 @@
 
 GoingSomewhere is a travel-planning web app. Visitors explore destinations on an interactive globe, take a quiz or play a country game to find somewhere to go, then sign in to plan the trip with their group: day-by-day itinerary, budget, packing list and weather.
 
-**Live app:** <PASTE RENDER URL HERE>
+**Live app:** https://wad2-travelplaces-1.onrender.com/
 
-**Team:** Yong Xuan Sam, Charlene, Huong, Seth, Angeline, Xuan
+If the link doesn't load, message Jing Xuan on Slack and I'll boot up the server.
+
+**Team:** Yong Xuan, Sam, Charlene, Huong, Seth, Angeline, Jing Xuan
 
 ## 1. Features
 
@@ -83,6 +85,8 @@ Run from `client/GoingSomewhere`.
 | `pnpm test:weather` | Weather module |
 | `pnpm test:guess-country` | Country Guessing Game game flow logic |
 | `pnpm test:e2e` | Browser tests with Playwright on desktop (1440 wide) and mobile (375 wide) sizes |
+| `pnpm test:e2e discover` | Test discovery features |
+
 
 The unit suites use Node's built-in test runner and do not need a database. For the browser tests, install the browser once with `pnpm exec playwright install chromium`. The tests start their own test servers and the dev server.
 
@@ -106,20 +110,7 @@ In line with the course policy, these are the parts of the project that were wri
 | Itinerary pages and day-by-day view (trip list, new trip, activity cards and form) | `src/views/Trips.vue`, `NewTrip.vue`, `Itinerary.vue`, `src/components/itinerary/TripList.vue`, `ActivityCard.vue`, `ActivityFormModal.vue`, `NewTripForm.vue`, `EditTripModal.vue`, `ModalShell.vue`, `src/itinerary/api.js`, `dates.js`, `activity.js`, `session.js` | Claude | Yong Xuan Sam |
 | Clash detection (overlapping times, shown live in the form and blocked), duplicate-activity prompt, same name not allowed twice on one day | `src/itinerary/conflicts.js`, `duplicates.js`, `src/components/itinerary/DuplicateActivityModal.vue`, `ActivityFormModal.vue` | Claude | Yong Xuan Sam |
 | Itinerary tests (server, client unit and end-to-end) | `server/test/itinerary*.test.js`, `itineraryHelpers.js`, `itineraryPlaces.test.js`, `src/itinerary/*.test.js`, `tests/e2e/itinerary.spec.js`, `tests/e2e/itinerary-server.cjs` | Claude | Yong Xuan Sam |
+| Knowing how to use e2e for testing API, knowing how to use API, troubleshooting UI | test/e2e/discover.spec.js | Claude | Xuan|
 
-| Team member | AI use |
-| --- | --- |
-| Yong Xuan Sam (itinerary) | <fill in> |
-| Charlene (weather) | <fill in> |
-| Xuan | <fill in> |
 
-## 6. Working on the project (team rules)
 
-**Every developer works on their own branch. Never push directly to `main`.**
-
-1. Update `main`: `git checkout main && git pull origin main`
-2. Create your branch: `git checkout -b feature/<name>`
-3. Commit small, clear changes. Never commit secrets (API keys, passwords, `.env` files).
-4. Before pushing, tell the team, sync with the latest `main`, and run the tests.
-5. Push (`git push -u origin feature/<name>`) and open a Pull Request into `main`. Describe the change and how you tested it.
-6. Notify the project owner and wait for approval before merging.
