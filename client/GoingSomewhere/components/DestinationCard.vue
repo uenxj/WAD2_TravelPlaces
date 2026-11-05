@@ -1,5 +1,6 @@
 <script setup>
 import { ref, watch } from 'vue'
+import { user } from '../src/services/auth.js'
 import { getCurrentTemperature } from '../src/weather/api.js'
 
 const props = defineProps({
@@ -41,12 +42,12 @@ watch(
 
     <div class="scroll">
       <div class="hero">
-        <img :src="props.destination.image" :alt="props.destination.city" :class="{ loaded: imageLoaded }"
+        <img :src="props.destination.image" :alt="props.destination.city" :class="{ loaded: imageLoaded }" class="flex-image"
           @load="imageLoaded = true" />
       </div>
 
       <div class="body">
-        <h2 class="place">{{ props.destination.city }},</h2>
+        <h1 class="place" tabindex="-1">{{ props.destination.city }},</h1>
         <p class="country">{{ props.destination.country }}</p>
 
         <h4 class="label">Description</h4>
@@ -56,7 +57,8 @@ watch(
         <p class="text">
           {{ weather ?? (weatherFailed ? 'Unavailable' : 'Loading…') }}
         </p>
-        <RouterLink class="weather-link" :to="{ path: '/weather', query: { destination: props.destination.id } }">Check weather &amp; air quality for your dates →</RouterLink>
+        <RouterLink class="weather-link" :to="{ path: '/weather', query: { destination: props.destination.id } }">Check
+          weather &amp; air quality for your dates →</RouterLink>
 
         <h4 class="label">Picture collage</h4>
         <div class="gallery">
@@ -68,7 +70,7 @@ watch(
         <button class="add" type="button" @click="emit('add', props.destination)">
           Plan a trip here
         </button>
-        <p class="account-hint">Log in to save places or create a trip.</p>
+        <p v-if="!user" class="account-hint">Log in to save places or create a trip.</p>
         <p class="account-hint">Weather data by <a href="https://open-meteo.com/" target="_blank"
             rel="noopener noreferrer">Open-Meteo</a>.</p>
       </div>
@@ -77,22 +79,36 @@ watch(
 </template>
 
 <style scoped>
-.weather-link { display: inline-block; color: #163c55; font-family: system-ui, sans-serif; font-size: .85rem; line-height: 1.5; margin-bottom: 1rem; }
+.weather-link {
+  display: inline-block;
+  color: #163c55;
+  font-family: system-ui, sans-serif;
+  font-size: .85rem;
+  line-height: 1.5;
+  margin-bottom: 1rem;
+}
+
 .dest-card {
+  display: flex;
+  flex-direction: column;
   position: relative;
-  width: 360px;
+  width: 100%;
   flex-shrink: 0;
-  height: 600px;
-  margin: 24px 0 24px 24px;
+  height: 100%;
+  min-height: 0;
+  margin: 24px;
   background: linear-gradient(180deg, #efe6d6 0%, #dcdcdc 45%, #d9d9d9 100%);
   color: #1b1b1b;
   overflow: hidden;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
   font-family: 'IM Fell English', Georgia, serif;
+  /* border: solid red 1px; */
+  
 }
 
 .scroll {
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
 }
 
@@ -103,6 +119,10 @@ watch(
   z-index: 3;
   background: none;
   border: 0;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 999px;
+  background: #efe6d6;
   font-size: 1.8rem;
   line-height: 1;
   color: #1b1b1b;
@@ -111,14 +131,15 @@ watch(
 /* Picture fades into the card colour at the bottom */
 .hero {
   position: relative;
-  height: 260px;
+  min-width: fit-content;
+  height: auto;
   background: #efe6d6;
-  overflow: hidden;
+  overflow:hidden;
 }
 
 .hero img {
   width: 100%;
-  height: 100%;
+  height: auto;
   object-fit: cover;
   opacity: 0;
   transition: opacity 0.8s ease;
@@ -128,13 +149,14 @@ watch(
   opacity: 1;
 }
 
+/* the blur transition to body */
 .hero::after {
   content: '';
   position: absolute;
   left: 0;
   right: 0;
   bottom: 0;
-  height: 110px;
+  height: 50px;
   background: linear-gradient(transparent, #d9d9d9);
   pointer-events: none;
 }
@@ -148,9 +170,12 @@ watch(
 .place {
   font-family: 'Pinyon Script', cursive;
   font-weight: 400;
-  font-size: 2.4rem;
+  font-size: clamp(2.5rem, 4vw, 3.4rem);
+  overflow-wrap: anywhere;
+  z-index: 2;
   line-height: 1.1;
   margin: 0;
+  /* border: 1px solid green; */
 }
 
 .country {
@@ -164,13 +189,16 @@ watch(
   font-weight: 400;
   font-size: 0.95rem;
   letter-spacing: 0.05em;
-  margin: 1rem 0 0.25rem;
+  margin-top: 20px;
+  margin-bottom: 0px;
+  /* border: solid 1px purple; */
 }
 
 .text {
-  margin: 0 0 0.5rem;
+  margin-top: 0px;
   font-size: 1rem;
   line-height: 1.4;
+  /* border: 1px solid yellow; */
 }
 
 .gallery {
@@ -179,20 +207,28 @@ watch(
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   padding-bottom: 8px;
+  height: 220px;
 }
 
 .gallery img {
   flex: 0 0 80%;
-  height: 180px;
+  width: 100%;
+  height: auto;
   object-fit: cover;
   border-radius: 6px;
+  scroll-behavior: smooth;
   scroll-snap-align: center;
+  /* scroll-snap-align: center; */
+  /* scroll-behavior: smooth; */
 }
 
 .add {
   width: 100%;
   margin: 1.2rem 0 0.5rem;
   padding: 0.9rem;
+  border-radius: 999px;
+  font-family: system-ui, sans-serif;
+  font-weight: 600;
   background: #0d1a33;
   color: #ffd27f;
   border: 0;
@@ -218,7 +254,7 @@ watch(
   margin: .75rem 0 0;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 767.98px) {
   .dest-card {
     width: calc(100% - 2rem);
     margin: 1rem;
@@ -227,7 +263,14 @@ watch(
   }
 
   .scroll {
+    flex: none;
     overflow: visible;
+    overscroll-behavior: auto;
   }
 }
+</style>
+
+<style scoped>
+@media (min-width: 768px) { .scroll { overscroll-behavior: contain; } }
+@media (prefers-reduced-motion: reduce) { .hero img { transition: none; } }
 </style>

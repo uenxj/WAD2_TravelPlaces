@@ -1,12 +1,16 @@
 <script setup>
 import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
+import TripBackLink from '../components/TripBackLink.vue'
 import ChecklistItem from '../../components/checklist/ChecklistItem.vue'
 import QuickPack from '../../components/checklist/QuickPack.vue'
 import EssentialsAlert from '../../components/checklist/EssentialsAlert.vue'
 import SuitcaseStage from '../../components/checklist/SuitcaseStage.vue'
 import FinalReview from '../../components/checklist/FinalReview.vue'
 import { checklistApi } from '../checklist/api.js'
+import { itineraryApi } from '../itinerary/api.js'
+import { tripSignals } from '../checklist/tripSignals.js'
+import { SAMPLE_TRIPS } from '../data/sampleTrips.js'
 import {
   CATEGORIES, DEFAULT_KEYS, TRIP_TYPES, ITEMS,
   suggestionsFor, withoutExisting, toNewItem, guessCategory, generatePlan,
@@ -20,6 +24,7 @@ const props = defineProps({
 })
 const route = useRoute()
 const tripId = computed(() => props.tripId || (typeof route.query.trip === 'string' && route.query.trip) || 'demo-trip')
+const trip = ref(null) // the real trip from the itinerary feature, when this checklist belongs to one
 
 const items = ref([])
 const status = ref('loading') // loading | ready | error
@@ -69,6 +74,7 @@ watch(tripId, () => {
   query.value = ''
   openState.value = {}
   load()
+  loadTrip()
 })
 
 // ----- progress -----
@@ -87,8 +93,11 @@ const stage = computed(() => {
 })
 
 const essentialCount = computed(() => items.value.filter((i) => i.priority === 'essential').length)
-// Airport-style code for the boarding pass: "preview-tokyo" -> "TOK"
-const tripCode = computed(() => (tripId.value.split(/[-_]/).filter(Boolean).pop() || 'TRP').slice(0, 3).toUpperCase())
+// Airport-style code for the boarding pass: destination "Tokyo, Japan" or id "preview-tokyo" -> "TOK"
+const tripCode = computed(() => {
+  const source = trip.value?.destination ?? tripId.value.split(/[-_]/).filter(Boolean).pop() ?? ''
+  return source.replace(/[^a-z]/gi, '').slice(0, 3).toUpperCase() || 'TRP'
+})
 
 // Passport stamps: one per category in use, inked once every item in it is packed.
 const stamps = computed(() =>
@@ -236,18 +245,57 @@ function toggleTripType(id) {
 }
 
 // ----- what the recommendations are based on -----
-// Today: the trip types the user picks. Later, from teammates' features once they exist
-// (see src/checklist/RECOMMENDATIONS.md):
-//   - itinerary activities -> `activities`, e.g. [{ title: 'Skiing in Niseko' }]
-//   - destination / weather -> `signals`, e.g. [{ tag: 'cold', reason: '…' }]
-// Until then these stay empty, so nothing is invented.
-const itineraryActivities = []
-const tripSignals = []
+// The trip types the user picks and, for a real trip, its itinerary activities (itinerary feature)
+// plus its destination and weather (weather module) as signals, e.g. { tag: 'cold', reason: '…' }.
+// See src/checklist/RECOMMENDATIONS.md.
+const itineraryActivities = ref([])
+const contextSignals = ref([])
+
+async function loadTrip() {
+  const requestedTrip = tripId.value
+  trip.value = null
+  itineraryActivities.value = []
+  contextSignals.value = []
+  if (requestedTrip === 'demo-trip') return
+  if (requestedTrip.startsWith('preview-')) {
+    // Sample trips (preview mode): their illustrative itinerary in src/data/sampleTrips.js, in the
+    // same shape as a real trip from the itinerary API.
+    const sample = SAMPLE_TRIPS.find((t) => `preview-${t.id}` === requestedTrip)
+    if (!sample) return
+    trip.value = {
+      name: sample.name, destination: sample.place, timezone: sample.timezone,
+      center: { lat: sample.latitude, lng: sample.longitude },
+      startDate: sample.days[0].date, endDate: sample.days.at(-1).date,
+    }
+    itineraryActivities.value = sample.days.flatMap((d) => d.activities.map((a) => ({ title: a.name, date: a.date })))
+  } else {
+    try {
+      const [found, activities] = await Promise.all([
+        itineraryApi.getTrip(requestedTrip),
+        itineraryApi.listItems(requestedTrip),
+      ])
+      if (requestedTrip !== tripId.value) return
+      trip.value = found
+      itineraryActivities.value = activities.map((a) => ({ title: a.title, date: a.date }))
+    } catch {
+      return // Not a trip this user can open (or not signed in): the checklist still works on its own.
+    }
+  }
+  // Weather arrives a moment later; suggestions update when it does.
+  let context
+  try {
+    context = await tripSignals(trip.value)
+  } catch {
+    return // no destination or weather ideas; the rest of the suggestions still work
+  }
+  if (requestedTrip !== tripId.value) return
+  contextSignals.value = context.signals
+}
 
 const planInput = computed(() => ({
   tripTypes: tripTypes.value,
-  signals: tripSignals,
-  activities: itineraryActivities,
+  signals: contextSignals.value,
+  activities: itineraryActivities.value,
 }))
 
 const suggestions = computed(() => withoutExisting(suggestionsFor(planInput.value), items.value))
@@ -261,7 +309,7 @@ let noticeTimer = null
 function notify(text, kind = 'ok', undo = null) {
   clearTimeout(noticeTimer)
   notice.value = { text, kind, undo }
-  noticeTimer = setTimeout(() => (notice.value = null), undo ? 7000 : kind === 'error' ? 6000 : 3000)
+  if (!undo && kind !== 'error') noticeTimer = setTimeout(() => (notice.value = null), 3000)
 }
 onBeforeUnmount(() => clearTimeout(noticeTimer))
 
@@ -378,19 +426,21 @@ async function restore(item) {
 }
 
 load()
+loadTrip()
 </script>
 
 <template>
-  <div class="checklist-page" :class="{ embedded }">
+  <component :is="embedded ? 'section' : 'main'" class="checklist-page" :class="{ embedded }">
     <div :class="embedded ? 'checklist-body' : 'content-page checklist-body'">
+      <TripBackLink v-if="!embedded" :trip-id="tripId" />
 
       <!-- Passport header -->
       <header class="passport">
         <div class="passport-top">
           <div>
             <p class="eyebrow">Packing passport</p>
-            <component :is="embedded ? 'h2' : 'h1'" class="title">{{ embedded ? 'Packing checklist' : 'My checklist' }}</component>
-            <p class="trip">Trip · <span data-testid="trip-id">{{ tripId }}</span></p>
+            <component :is="embedded ? 'h2' : 'h1'" class="title">{{ embedded ? 'Packing checklist' : 'Packing list' }}</component>
+            <p class="trip">Trip · <span data-testid="trip-id">{{ trip?.name ?? tripId }}</span></p>
           </div>
           <dl class="stats" v-if="status === 'ready'">
             <div>
@@ -560,82 +610,12 @@ load()
       </div>
 
       <div class="row g-3 g-lg-4">
-        <!-- Sidebar: suggestions (after the list on mobile, right column on desktop) -->
-        <aside class="col-12 col-lg-4 order-2">
-          <section class="sheet ideas">
-            <h2 class="section-title">Trip-specific ideas</h2>
-            <p class="hint">What does this trip involve? We'll suggest items, best matches first, with the reason.</p>
-            <div class="chips">
-              <button v-for="t in TRIP_TYPES" :key="t.id" type="button" class="chip"
-                :class="{ on: tripTypes.includes(t.id) }" :aria-pressed="tripTypes.includes(t.id)"
-                @click="toggleTripType(t.id)">
-                <span aria-hidden="true">{{ t.emoji }}</span> {{ t.label }}
-              </button>
-            </div>
-
-            <template v-if="suggestions.length">
-              <ul class="suggestions">
-                <li v-for="s in suggestions" :key="s.key">
-                  <div class="min-w-0">
-                    <span class="s-name">{{ s.name }}
-                      <span class="s-level" :class="s.level.split(' ')[0].toLowerCase()"
-                        :title="`Relevance score ${s.score}`">{{ s.level }}</span></span>
-                    <span class="s-why">{{ s.category }} · {{ s.reason }}<template v-if="s.priority === 'optional'"> ·
-                        optional</template></span>
-                  </div>
-                  <button type="button" class="secondary-action sm" :disabled="adding"
-                    :aria-label="`Add ${s.name}`" @click="addCatalog([s], 'suggested')">+ Add</button>
-                </li>
-              </ul>
-              <button type="button" class="primary-action sm w-100" :disabled="adding"
-                @click="addCatalog(suggestions, 'suggested')">Add all {{ suggestions.length }}</button>
-            </template>
-            <p v-else-if="tripTypes.length" class="hint mb-0">✓ Everything suggested is already on your list.</p>
-
-            <p class="footnote">Suggestions come from the trip types you pick, plus backups for things that
-              often go wrong. Ideas from your itinerary, destination and weather will appear here once those
-              features are connected.</p>
-          </section>
-
-          <section v-if="items.length && missingDefaults.length" class="sheet ideas mt-3">
-            <h2 class="section-title">Starter essentials</h2>
-            <p class="hint">{{ missingDefaults.length }} common item{{ missingDefaults.length === 1 ? ' is' : 's are' }}
-              not on your list yet: {{ missingDefaults.slice(0, 3).map((d) => d.name).join(', ') }}{{
-                missingDefaults.length > 3 ? '…' : '' }}</p>
-            <button type="button" class="secondary-action sm" :disabled="adding"
-              @click="addCatalog(missingDefaults, 'default')">Add {{ missingDefaults.length }}</button>
-          </section>
-        </aside>
 
         <!-- Checklist -->
-        <main class="col-12 col-lg-8 order-1">
-          <div v-if="!items.length" class="sheet empty" data-testid="empty">
-            <svg viewBox="0 0 64 64" width="72" height="72" aria-hidden="true">
-              <rect x="10" y="20" width="44" height="32" rx="5" />
-              <path d="M24 20v-6a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v6M10 32h44M20 52v4M44 52v4" />
-            </svg>
-            <h2 class="h4">Let's build your packing list</h2>
-            <p>What does this trip involve? Pick any that apply and we'll pack the list for you, with a reason for every suggestion.</p>
-            <div class="chips gen-chips" role="group" aria-label="Trip types">
-              <button v-for="t in TRIP_TYPES" :key="t.id" type="button" class="chip"
-                :class="{ on: tripTypes.includes(t.id) }" :aria-pressed="tripTypes.includes(t.id)"
-                @click="toggleTripType(t.id)">
-                <span aria-hidden="true">{{ t.emoji }}</span> {{ t.label }}
-              </button>
-            </div>
-            <button class="primary-action gen-btn" :disabled="adding" data-testid="generate" @click="generateList">
-              <template v-if="generating">Packing your list…</template>
-              <template v-else>✦ Generate my packing list · {{ planSize }} items</template>
-            </button>
-            <p class="small mt-3 mb-0">
-              {{ tripTypes.length ? `Starter essentials + everything a ${tripTypeLabel} trip needs. You can remove anything.` : 'No trip type picked: you\'ll get the starter essentials.' }}
-            </p>
-            <p class="small mt-1 mb-0">
-              Or <button type="button" class="link-btn" :disabled="adding" data-testid="add-defaults"
-                @click="addCatalog(missingDefaults, 'default')">just add the {{ missingDefaults.length }} basics</button>,
-              or type your own above.
-            </p>
-          </div>
+        <section class="col-12 col-lg-8" aria-label="Packing items">
+          <p v-if="!items.length" class="hint packing-empty" data-testid="empty">
+            Your packing list is empty. Add an item above or use the trip-specific ideas to get started.
+          </p>
 
           <template v-else>
             <p v-if="!sections.length" class="sheet empty-filter">
@@ -674,7 +654,57 @@ load()
               </section>
             </div>
           </template>
-        </main>
+        </section>
+
+        <aside class="col-12 col-lg-4">
+          <section class="sheet ideas">
+            <h2 class="section-title">Trip-specific ideas</h2>
+            <p class="hint">What does this trip involve? We'll suggest items, best matches first, with the reason.</p>
+            <div class="chips">
+              <button v-for="t in TRIP_TYPES" :key="t.id" type="button" class="chip"
+                :class="{ on: tripTypes.includes(t.id) }" :aria-pressed="tripTypes.includes(t.id)"
+                @click="toggleTripType(t.id)">
+                <span aria-hidden="true">{{ t.emoji }}</span> {{ t.label }}
+              </button>
+            </div>
+
+            <div v-if="!items.length" class="packing-generator">
+              <button type="button" class="primary-action sm w-100" :disabled="adding" data-testid="generate" @click="generateList">
+                {{ generating ? 'Packing your list…' : `Generate my packing list · ${planSize} items` }}
+              </button>
+            </div>
+
+            <template v-if="suggestions.length">
+              <ul class="suggestions">
+                <li v-for="s in suggestions" :key="s.key">
+                  <div class="min-w-0">
+                    <span class="s-name">{{ s.name }}
+                      <span class="s-level" :class="s.level.split(' ')[0].toLowerCase()"
+                        :title="`Relevance score ${s.score}`">{{ s.level }}</span></span>
+                    <span class="s-why">{{ s.category }} · {{ s.reason }}<template v-if="s.priority === 'optional'"> ·
+                        optional</template></span>
+                  </div>
+                  <button type="button" class="secondary-action sm" :disabled="adding"
+                    :aria-label="`Add ${s.name}`" @click="addCatalog([s], 'suggested')">+ Add</button>
+                </li>
+              </ul>
+              <button type="button" class="primary-action sm w-100" :disabled="adding"
+                @click="addCatalog(suggestions, 'suggested')">Add all {{ suggestions.length }}</button>
+            </template>
+            <p v-else-if="tripTypes.length" class="hint mb-0">✓ Everything suggested is already on your list.</p>
+
+
+          </section>
+
+          <section v-if="missingDefaults.length" class="sheet ideas mt-3">
+            <h2 class="section-title">Starter essentials</h2>
+            <p class="hint">{{ missingDefaults.length }} common item{{ missingDefaults.length === 1 ? ' is' : 's are' }}
+              not on your list yet: {{ missingDefaults.slice(0, 3).map((d) => d.name).join(', ') }}{{
+                missingDefaults.length > 3 ? '…' : '' }}</p>
+            <button type="button" class="secondary-action sm" :disabled="adding"
+              data-testid="add-defaults" @click="addCatalog(missingDefaults, 'default')">Add the {{ missingDefaults.length }} basics</button>
+          </section>
+        </aside>
       </div>
       </template>
     </div>
@@ -689,7 +719,8 @@ load()
         <button type="button" class="close-note" aria-label="Dismiss" @click="notice = null">×</button>
       </div>
     </Transition>
-  </div>
+  </component>
+
 </template>
 
 <style scoped>
@@ -737,7 +768,7 @@ load()
 
 .title {
   margin: 0;
-  font-size: clamp(1.6rem, 3.4vw, 2.4rem);
+  font-size: var(--travel-heading-size);
   font-weight: 700;
   letter-spacing: -0.035em;
   line-height: 1.1;
@@ -748,6 +779,10 @@ load()
   font-size: 0.85rem;
   color: var(--travel-muted);
   overflow-wrap: anywhere;
+}
+
+.trip a {
+  color: var(--travel-accent);
 }
 
 .stats {
@@ -859,7 +894,7 @@ load()
 .form-select {
   --bs-form-select-bg-img: url("data:image/svg+xml,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 16 16%27%3e%3cpath fill=%27none%27 stroke=%27%23bdc8d8%27 stroke-linecap=%27round%27 stroke-linejoin=%27round%27 stroke-width=%272%27 d=%27m2 5 6 6 6-6%27/%3e%3c/svg%3e");
   min-height: 46px;
-  border: 1px solid var(--travel-border);
+  border: 1px solid var(--travel-control-border);
   border-radius: 0.6rem;
   background-color: var(--travel-bg);
   color: var(--travel-text);
@@ -1122,16 +1157,8 @@ load()
   opacity: 0;
 }
 
-/* ---------- generator (empty state) ---------- */
-.gen-chips {
-  justify-content: center;
-  max-width: 520px;
-  margin: 1rem auto 1.25rem;
-}
-
-.gen-btn {
-  min-width: min(100%, 320px);
-}
+.packing-generator { margin-bottom: 1.25rem; }
+.packing-empty { margin-top: 0; }
 
 /* ---------- final call ---------- */
 .final-call {
@@ -1300,7 +1327,7 @@ load()
 .section-title,
 .cat-name {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: var(--travel-section-size);
   font-weight: 700;
   letter-spacing: -0.01em;
 }
@@ -1345,6 +1372,7 @@ load()
   margin: 0 0 1rem;
   max-height: 380px;
   overflow-y: auto;
+  overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: var(--travel-border) transparent;
 }
@@ -1381,7 +1409,7 @@ load()
   margin-left: 0.3rem;
   padding: 0 0.45rem;
   border-radius: 999px;
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   font-weight: 700;
   letter-spacing: 0.04em;
   vertical-align: 1px;
@@ -1415,28 +1443,6 @@ load()
 }
 
 /* ---------- checklist ---------- */
-.empty {
-  text-align: center;
-  padding: 2.5rem 1.25rem;
-}
-
-.empty svg {
-  fill: #354d51;
-  stroke: var(--travel-accent);
-  stroke-width: 2;
-  stroke-linecap: round;
-  margin-bottom: 0.5rem;
-}
-
-.empty h2 {
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-
-.empty p {
-  color: var(--travel-muted);
-}
-
 .empty-filter {
   text-align: center;
   color: var(--travel-muted);
@@ -1658,6 +1664,8 @@ load()
   border: 0;
   background: none;
   color: inherit;
+  min-width: 44px;
+  min-height: 44px;
   font-size: 1.3rem;
   line-height: 1;
   opacity: 0.7;

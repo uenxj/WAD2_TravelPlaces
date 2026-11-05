@@ -1,8 +1,10 @@
 <script setup>
-import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { useReducedMotion } from '../composables/useReducedMotion.js'
 import Globe from 'globe.gl'
 
 const globeEl = ref(null)
+const reducedMotion = useReducedMotion()
 
 let globe = null
 let resizeObserver = null
@@ -38,8 +40,15 @@ function sizeGlobe() {
     globe.width(globeEl.value.clientWidth).height(globeEl.value.clientHeight)
 }
 
+watch(reducedMotion, () => {
+    if (!globe) return
+    globe.controls().autoRotate = !reducedMotion.value
+    globe.controls().enableDamping = !reducedMotion.value
+    globe.arcDashAnimateTime(reducedMotion.value ? 0 : 2800).ringsData(reducedMotion.value ? [] : PLACES)
+})
+
 onMounted(() => {
-    globe = new Globe(globeEl.value, { animateIn: true })
+    globe = new Globe(globeEl.value, { animateIn: !reducedMotion.value })
         .globeImageUrl(EARTH)
         .bumpImageUrl(BUMP)
         .backgroundColor('rgba(0,0,0,0)')
@@ -52,7 +61,7 @@ onMounted(() => {
         .arcAltitudeAutoScale(0.45)
         .arcDashLength(0.4)
         .arcDashGap(0.25)
-        .arcDashAnimateTime(2800)
+        .arcDashAnimateTime(reducedMotion.value ? 0 : 2800)
 
         // City dots + pulsing rings
         .pointsData(PLACES)
@@ -60,7 +69,7 @@ onMounted(() => {
         .pointAltitude(0.015)
         .pointRadius(0.45)
         .pointLabel(d => `<b style="font-size:14px">${d.name}</b>`)
-        .ringsData(PLACES)
+        .ringsData(reducedMotion.value ? [] : PLACES)
         .ringColor(() => t => `rgba(255,183,3,${1 - t})`)
         .ringMaxRadius(4)
         .ringPropagationSpeed(2)
@@ -68,15 +77,16 @@ onMounted(() => {
 
         .onGlobeClick(({ lat, lng }) => {
             globe.controls().autoRotate = false
-            globe.pointOfView({ lat, lng, altitude: 1.6 }, 1200)
+            globe.pointOfView({ lat, lng, altitude: 1.6 }, reducedMotion.value ? 0 : 1200)
         })
         .onPointClick(p => {
             globe.controls().autoRotate = false
-            globe.pointOfView({ lat: p.lat, lng: p.lng, altitude: 1.4 }, 1200)
+            globe.pointOfView({ lat: p.lat, lng: p.lng, altitude: 1.4 }, reducedMotion.value ? 0 : 1200)
         })
 
     const controls = globe.controls()
-    controls.autoRotate = true
+    controls.autoRotate = !reducedMotion.value
+    controls.enableDamping = !reducedMotion.value
     controls.autoRotateSpeed = 0.7
     controls.enableZoom = false
 
@@ -192,8 +202,13 @@ onBeforeUnmount(() => {
 .globe {
     width: 100%;
     height: min(40vw, 580px, calc(100svh - 200px));
-    -webkit-mask-image: radial-gradient(ellipse at center, #000 62%, transparent 100%);
-    mask-image: radial-gradient(ellipse at center, #000 62%, transparent 100%);
+    /* Each canvas edge reaches full transparency, including its midpoints. */
+    mask-image:
+        linear-gradient(to right, transparent, rgb(0 0 0 / .16) 2%, rgb(0 0 0 / .5) 5%, rgb(0 0 0 / .84) 8%, #000 12%, #000 88%, rgb(0 0 0 / .84) 92%, rgb(0 0 0 / .5) 95%, rgb(0 0 0 / .16) 98%, transparent),
+        linear-gradient(to bottom, transparent, rgb(0 0 0 / .16) 2%, rgb(0 0 0 / .5) 5%, rgb(0 0 0 / .84) 8%, #000 12%, #000 88%, rgb(0 0 0 / .84) 92%, rgb(0 0 0 / .5) 95%, rgb(0 0 0 / .16) 98%, transparent);
+    mask-composite: intersect;
+    mask-repeat: no-repeat;
+    overflow: clip;
     cursor: grab;
     touch-action: pan-y;
 }
