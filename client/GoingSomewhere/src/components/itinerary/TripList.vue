@@ -56,7 +56,7 @@ onMounted(load)
     <ul v-else class="trip-grid">
       <li v-for="trip in trips" :key="trip._id" class="trip-card stamp-card" data-testid="trip-row">
         <div class="surface trip-card-content">
-          <p class="eyebrow">{{ trip.ownerId === user?.id ? 'You organise' : 'You are invited' }}</p>
+          <p class="eyebrow">{{ trip.ownerId === user?.id ? 'Organiser' : 'Traveller' }}</p>
           <h2>
             <RouterLink :to="`/trips/${trip._id}`" data-testid="trip-link">{{ trip.name }}</RouterLink>
           </h2>

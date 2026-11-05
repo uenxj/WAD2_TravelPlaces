@@ -275,12 +275,12 @@ onBeforeUnmount(() => clearInterval(timer))
               <li v-for="m in trip.members" :key="m.id">
                 <span class="avatar" aria-hidden="true">{{ m.name[0].toUpperCase() }}</span>
                 <span>{{ m.name }}</span>
-                <span v-if="isOwner(m.id)" class="muted-copy small-copy">{{ m.id === user?.id ? 'You · organiser' : 'Organiser' }}</span>
+                <span v-if="isOwner(m.id)" class="muted-copy small-copy">Organiser</span>
                 <span v-else-if="m.id === user?.id" class="muted-copy small-copy">You</span>
               </li>
             </ul>
             <form class="member-form" @submit.prevent="addMember">
-              <input v-model="newMember" type="email" aria-label="Add a traveller by their account email" placeholder="Their account email" data-testid="member-input" />
+              <input v-model="newMember" type="email" aria-label="Add a traveller by their account email" placeholder="Their email" data-testid="member-input" />
               <button class="secondary-action small" data-testid="add-member-btn">Add</button>
             </form>
             <p v-if="memberMessage" class="small-copy member-message" :class="{ failed: memberFailed }" role="status">{{ memberMessage }}</p>
