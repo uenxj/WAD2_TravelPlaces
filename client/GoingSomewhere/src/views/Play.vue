@@ -693,7 +693,10 @@ onBeforeUnmount(() => {
     overflow: hidden;
     overflow: clip;
     padding: 2rem 1rem 4rem;
-    background: #101a2e;
+    /* Only the page behind the game follows the theme; the game cards keep their own light palette,
+       so native controls in them (the guess box) stay light too. */
+    background: var(--travel-bg);
+    color-scheme: light;
     font-family: 'DM Sans', system-ui, sans-serif;
     color: var(--ink);
 }

@@ -5,6 +5,15 @@
   <meta charset="UTF-8">
   <link rel="icon" href="/favicon.ico">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script>
+    // Apply the saved light/dark theme before the page paints, so it never flashes the wrong colours.
+    // Same key and default as src/composables/useTheme.js.
+    (function () {
+      var theme = 'dark'
+      try { var saved = localStorage.getItem('gs-theme'); if (saved === 'light' || saved === 'dark') theme = saved } catch (e) {}
+      document.documentElement.dataset.theme = theme
+    })()
+  </script>
   <title>GoingSomewhere — Plan your next adventure</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

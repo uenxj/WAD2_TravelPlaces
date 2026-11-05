@@ -123,16 +123,16 @@ onMounted(load)
 }
 
 .danger:hover {
-  border-color: #bc7c86;
-  color: #ffd8dc;
+  border-color: var(--travel-danger-border);
+  color: var(--travel-danger-text);
 }
 
 .form-error {
   padding: .75rem 1rem;
-  border: 1px solid #bc7c86;
+  border: 1px solid var(--travel-danger-border);
   border-radius: .6rem;
-  background: #3c252c;
-  color: #ffd8dc;
+  background: var(--travel-danger-bg);
+  color: var(--travel-danger-text);
 }
 
 @media (max-width: 700px) {
