@@ -17,7 +17,6 @@ const OUTDOOR_KINDS = [
 ];
 
 // Nominatim "place_rank": 4 = country, ~8 = state/prefecture, 16+ = city/town. Above 8 we treat it as a city.
-const COUNTRY_RANK = 4;
 const CITY_RANK = 8;
 const MIN_RADIUS_M = 3000;
 const MAX_RADIUS_M = 25000;
@@ -172,7 +171,7 @@ async function getTopPlaces(destination, { limit = 50 } = {}) {
   let raw = await otmRes.json();
 
   // 3) Keep only places inside the city's (or region's) real boundary. If that would leave nothing, keep them all.
-  if (geometry && rank > COUNTRY_RANK) {
+  if (geometry) {
     const inside = raw.filter((p) => p.point && insideGeometry(p.point.lon, p.point.lat, geometry));
     if (inside.length) raw = inside;
   }
