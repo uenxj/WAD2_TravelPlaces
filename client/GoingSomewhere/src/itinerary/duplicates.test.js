@@ -1,7 +1,7 @@
 // Run with: pnpm test:itinerary   (plain Node, no browser needed)
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { findSameActivity, normalizeTitle } from './duplicates.js'
+import { findSameActivity, findSameDayActivity, normalizeTitle } from './duplicates.js'
 
 const items = [
   { _id: '1', title: 'Gardens by the Bay', placeId: 'W1', date: '2026-12-05', startTime: '14:00' },
@@ -27,6 +27,19 @@ test('different activities and empty titles match nothing', () => {
   assert.deepEqual(findSameActivity(items, { title: 'Museum', date: '2026-12-04' }), [])
   assert.deepEqual(findSameActivity(items, { title: '  ', date: '2026-12-04' }), [])
   assert.deepEqual(findSameActivity([], { title: 'Zoo', date: '2026-12-04' }), [])
+})
+
+test('the same activity already on the same day is found, ignoring case, spaces and the activity being edited', () => {
+  const day = [
+    { _id: 'a', title: 'Gardens by the Bay', placeId: 'W1', date: '2026-12-05', startTime: '14:00' },
+    { _id: 'b', title: 'Zoo', placeId: 'W2', date: '2026-12-05', startTime: '09:00' },
+    { _id: 'c', title: 'Gardens by the Bay', placeId: '', date: '2026-12-06', startTime: '09:00' },
+  ]
+  assert.deepEqual(findSameDayActivity(day, { title: ' gardens  BY the bay ', date: '2026-12-05' }).map((i) => i._id), ['a'])
+  assert.deepEqual(findSameDayActivity(day, { title: 'Day at the zoo', placeId: 'W2', date: '2026-12-05' }).map((i) => i._id), ['b'])
+  assert.deepEqual(findSameDayActivity(day, { title: 'Zoo', date: '2026-12-05' }, { ignoreId: 'b' }), [])
+  assert.deepEqual(findSameDayActivity(day, { title: 'Gardens by the Bay', date: '2026-12-07' }), [])
+  assert.deepEqual(findSameDayActivity(day, { title: '  ', date: '2026-12-05' }), [])
 })
 
 test('normalizeTitle', () => assert.equal(normalizeTitle('  A   b '), 'a b'))

@@ -423,7 +423,7 @@ test('or to duplicate it, which keeps both copies', async ({ page }) => {
   await expect(page.getByTestId('duplicate-match')).toHaveCount(2)
 })
 
-test('"Go back" keeps what was typed, and a same-day repeat is not treated as a duplicate', async ({ page }) => {
+test('"Go back" keeps what was typed so another day or time can be chosen', async ({ page }) => {
   await signUp(page)
   await createTrip(page)
   await addItem(page, { title: 'Gardens by the Bay', start: '10:00', end: '12:00' })
@@ -436,10 +436,41 @@ test('"Go back" keeps what was typed, and a same-day repeat is not treated as a 
   await expect(page.getByTestId('item-modal')).toBeVisible()
   await expect(page.getByTestId('item-title-input')).toHaveValue('Gardens by the Bay')
   await expect(page.getByTestId('item-start-input')).toHaveValue('14:00')
-  await page.getByTestId('item-date-input').selectOption({ index: 0 }) // same day as the existing one
-  await page.getByTestId('item-start-input').fill('13:00')
+  await page.getByTestId('item-start-input').fill('16:00')
+  await page.getByTestId('item-end-input').fill('17:00')
+  await page.getByTestId('save-item-btn').click() // still another day, so it asks again
+  await expect(page.getByTestId('duplicate-modal')).toBeVisible()
+  await page.getByTestId('duplicate-activity-btn').click()
+  await expect(page.getByTestId('item-row')).toHaveCount(1)
+  await expect(page.getByTestId('item-row')).toContainText('16:00')
+})
+
+test('the same activity cannot be added twice on one day, and the form says so', async ({ page }) => {
+  await signUp(page)
+  await createTrip(page)
+  await addItem(page, { title: 'Gardens by the Bay', start: '10:00', end: '12:00' })
+
+  // Same title (ignoring capitals and spaces), same day, a different time: still the same activity
+  await openAddForm(page, { title: ' gardens  BY the bay', start: '14:00', end: '15:00' })
+  const notice = page.getByTestId('same-day-duplicate')
+  await expect(notice).toContainText('This activity is already on this day.')
+  await expect(notice).toContainText('"Gardens by the Bay" is already planned on this day (10:00-12:00).')
+  await expect(page.getByTestId('save-item-btn')).toBeDisabled()
+  await page.getByTestId('item-title-input').press('Enter') // Enter cannot sneak it through
+  await expect(page.getByTestId('item-modal')).toBeVisible()
+  await expect(page.getByTestId('item-row')).toHaveCount(1)
+
+  // Another day is fine (it gets the move-or-duplicate question instead), and so is a different activity
+  await page.getByTestId('item-date-input').selectOption({ index: 1 })
+  await expect(notice).toBeHidden()
+  await expect(page.getByTestId('save-item-btn')).toBeEnabled()
+  await page.getByTestId('item-date-input').selectOption({ index: 0 })
+  await expect(notice).toBeVisible()
+  await page.getByTestId('item-title-input').fill('Gardens by the Bay night show')
+  await expect(notice).toBeHidden()
+  await expect(page.getByTestId('save-item-btn')).toBeEnabled()
   await page.getByTestId('save-item-btn').click()
-  await expect(page.getByTestId('duplicate-modal')).toBeHidden() // no prompt: saved straight away
+  await expect(page.getByTestId('item-modal')).toBeHidden()
   await expect(page.getByTestId('item-row')).toHaveCount(2)
 
 test('a country-only destination shows weather when the primary lookup is unavailable', async ({ page }) => {
@@ -565,4 +596,21 @@ test('an older backend gives a useful location recovery message instead of a raw
   await page.reload()
   await expect(page.getByText('Location lookup could not be refreshed. Open Edit trip, choose a destination, and save to try again.')).toBeVisible()
   await expect(page.getByText('Request failed (404)', { exact: true })).toHaveCount(0)
+})
+
+test('the same suggested place cannot be added twice on one day either', async ({ page }) => {
+  await signUp(page)
+  await createTrip(page)
+  const suggestion = () => page.getByRole('listitem').filter({ hasText: 'Gardens by the Bay' }).getByRole('button', { name: 'Add' })
+  await page.getByTestId('top-places-toggle').click()
+  await expect(page.getByTestId('top-places-area')).toContainText('Singapore')
+  await suggestion().click()
+  await page.getByTestId('save-item-btn').click()
+  await expect(page.getByTestId('item-row')).toHaveCount(1)
+
+  await suggestion().click()
+  await page.getByTestId('item-title-input').fill('Evening at the gardens') // renamed, but it is the same place
+  await page.getByTestId('item-start-input').fill('18:00')
+  await expect(page.getByTestId('same-day-duplicate')).toContainText('is already planned on this day')
+  await expect(page.getByTestId('save-item-btn')).toBeDisabled()
 })
