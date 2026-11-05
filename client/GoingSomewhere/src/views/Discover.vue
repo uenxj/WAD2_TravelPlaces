@@ -7,212 +7,264 @@ import Globe from 'globe.gl'
 import DestinationCard from '../../components/DestinationCard.vue'
 import { DESTINATIONS } from '../data/destinations.js'
 
-const EARTH = 'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg'
-const BUMP = 'https://unpkg.com/three-globe/example/img/earth-topology.png'
-const SNAP_DEGREES = 15 // how close a drop must be to count as a pin
-const DEFAULT_HINT = 'Search for a destination or drag your traveller onto a glowing pin'
+const EARTH_IMAGE_URL = 'https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg'
+const BUMP_IMAGE_URL = 'https://unpkg.com/three-globe/example/img/earth-topology.png'
+const DEFAULT_HINT = 'Click a glowing pin to explore a destination'
+const WHOLE_GLOBE_VIEW = { lat: 20, lng: 20, altitude: 2.6 } // the whole globe
+const PIN_VIEW_ALTITUDE = 2.2 // the globe turns to face the pin, without zooming in close (lower = closer)
 
 const reducedMotion = useReducedMotion()
 const { theme } = useTheme()
 const route = useRoute()
 const router = useRouter()
-const search = ref('')
-// Only show matches while the user is typing.
-const results = computed(() => {
-  const q = search.value.trim().toLowerCase()
-  if (!q) return []
-  return DESTINATIONS.filter(d => `${d.city} ${d.country}`.toLowerCase().includes(q))
-})
-const globeEl = ref(null)
-const selected = ref(null)
-const hovered = ref(null)
-const dragging = ref(false)
+
+const globeElement = ref(null)
+const pagesElement = ref(null) // the scrolling wrapper around the two pages
+const selectedDestination = ref(null)
+const hoveredDestination = ref(null)
 const hint = ref(DEFAULT_HINT)
 
 let globe = null
 let resizeObserver = null
-const pagesEl = ref(null) // the scrolling wrapper around the two pages
-const isCompact = () => window.matchMedia('(max-width: 767.98px)').matches // true on phones and tablets
 
-// Find the closest destination to a lat/lng, or null if none is within SNAP_DEGREES.
-function nearestDestination(lat, lng) {
-  let best = null
-  let bestDist = Infinity
-  for (const d of DESTINATIONS) {
-    const dLat = d.lat - lat
-    const dLng = ((d.lng - lng + 540) % 360) - 180 // handles crossing the date line
-    const dist = Math.hypot(dLat, dLng * Math.cos((lat * Math.PI) / 180))
-    if (dist < bestDist) {
-      bestDist = dist
-      best = d
-    }
+// On tablets and laptops the user can drag the divider to make the card column wider or narrower.
+const MIN_PANEL_WIDTH = 300
+const MIN_GLOBE_WIDTH = 300
+const leftPanelWidth = ref(null) // in pixels; null means use the default width from the CSS
+// Only the destination card can be resized; the intro panel keeps its default width.
+const pagesStyle = computed(function () {
+  if (!selectedDestination.value || !leftPanelWidth.value) return {}
+  return { '--left-panel-width': leftPanelWidth.value + 'px' }
+})
+
+function startResize(event) {
+  event.preventDefault()
+  const pagesBox = pagesElement.value.getBoundingClientRect()
+
+  function moveDivider(moveEvent) {
+    const wantedWidth = moveEvent.clientX - pagesBox.left
+    const widest = pagesBox.width - MIN_GLOBE_WIDTH
+    leftPanelWidth.value = Math.min(Math.max(wantedWidth, MIN_PANEL_WIDTH), widest)
   }
-  return bestDist <= SNAP_DEGREES ? best : null
+
+  function stopResize() {
+    window.removeEventListener('pointermove', moveDivider)
+    window.removeEventListener('pointerup', stopResize)
+    document.body.style.userSelect = ''
+  }
+
+  document.body.style.userSelect = 'none' // stops text from being selected while dragging
+  window.addEventListener('pointermove', moveDivider)
+  window.addEventListener('pointerup', stopResize)
 }
 
-// Convert a drag event's screen position into lat/lng on the globe.
-function coordsFromEvent(e) {
-  const r = globeEl.value.getBoundingClientRect()
-  return globe.toGlobeCoords(e.clientX - r.left, e.clientY - r.top) // null if not over the globe
+function isPhoneOrTablet() {
+  return window.matchMedia('(max-width: 767.98px)').matches
+}
+
+// Pin and ring colours come from app.css, so they follow the light/dark theme.
+function pinColour() {
+  return themeColor('--travel-discover-pin') || '#ffd27f'
+}
+
+// Turns a "#rrggbb" colour and an opacity into an rgba() string.
+function hexToRgba(hexColour, opacity) {
+  const match = /^#?([0-9a-f]{6})$/i.exec(hexColour)
+  if (!match) return hexColour
+  const colourNumber = parseInt(match[1], 16)
+  const red = (colourNumber >> 16) & 255
+  const green = (colourNumber >> 8) & 255
+  const blue = colourNumber & 255
+  return 'rgba(' + red + ', ' + green + ', ' + blue + ', ' + opacity + ')'
+}
+
+// globe.gl calls this with a progress value from 0 (start of a ring) to 1 (end), and the ring fades out.
+function ringColour() {
+  return function (progress) {
+    return hexToRgba(pinColour(), 1 - progress)
+  }
+}
+
+function pinAltitude(place) {
+  if (place === selectedDestination.value) return 0.45
+  if (place === hoveredDestination.value) return 0.32
+  return 0.18
+}
+
+function pinRadius(place) {
+  return place === hoveredDestination.value ? 2.0 : 1.0;
+}
+
+function pinFill(place) {
+  if (place === hoveredDestination.value) return themeColor('--travel-discover-pin-hover') || '#ffffff'
+  return pinColour()
 }
 
 function applyPins() {
   if (!globe) return
   globe
     .pointsData(DESTINATIONS)
-    .pointAltitude((d) => (d === selected.value ? 0.45 : d === hovered.value ? 0.32 : 0.18))
-    .pointRadius((d) => (d === hovered.value ? 0.5 : 0.3))
-    .pointColor((d) => (d === hovered.value ? '#ffffff' : 'rgba(255,210,127,0.9)'))
+    .pointAltitude(pinAltitude)
+    .pointRadius(pinRadius)
+    .pointColor(pinFill)
 }
-watch([selected, hovered], applyPins)
 
-// Shows the destination card and flies the globe to the place.
-function selectDestination(d) {
-  selected.value = d
+watch([selectedDestination, hoveredDestination], applyPins)
+
+// A dashed line through every destination, in the order they are listed in destinations.js.
+function applyRoute() {
+  if (!globe) return
+  globe
+    .pathsData([DESTINATIONS])
+    .pathColor(function () {
+      return hexToRgba(pinColour(), 0.7)
+    })
+    .pathStroke(0.6)
+    .pathDashLength(0.15)
+    .pathDashGap(0.08)
+    .pathDashAnimateTime(reducedMotion.value ? 0 : 8000)
+}
+
+// Shows the destination card and turns the globe to face that place.
+function selectDestination(destination) {
+  selectedDestination.value = destination
   hint.value = ''
-  if (route.query.destination !== d.id) {
-    router.replace({ path: '/discover', query: { ...route.query, destination: d.id } })
+  if (route.query.destination !== destination.id) {
+    router.replace({ path: '/discover', query: Object.assign({}, route.query, { destination: destination.id }) })
   }
   globe.controls().autoRotate = false
-  globe.pointOfView({ lat: d.lat, lng: d.lng, altitude: 1.5 }, reducedMotion.value ? 0 : 1200)
-  // On phones/tablets the card replaces the globe, so jump back to the top of the page
-  if (isCompact() && pagesEl.value) pagesEl.value.scrollTop = 0
+  globe.pointOfView(
+    { lat: destination.lat, lng: destination.lng, altitude: PIN_VIEW_ALTITUDE },
+    reducedMotion.value ? 0 : 1200,
+  )
+  // On phones and tablets the card replaces the globe, so jump back to the top of the page
+  if (isPhoneOrTablet() && pagesElement.value) pagesElement.value.scrollTop = 0
 }
 
-function focusDestination() {
-  document.querySelector('.card-view h1')?.focus({ preventScroll: true })
+function focusDestinationCard() {
+  const heading = document.querySelector('.card-view h1')
+  if (heading) heading.focus({ preventScroll: true })
 }
-
-// Picking a match from the search box.
-function pickFromSearch(d) {
-  search.value = ''
-  selectDestination(d)
-}
-
 
 // Closing the card brings back the same globe view as when the page first loads.
-function close() {
-  selected.value = null
-  document.getElementById('destination-search')?.focus()
+function closeCard() {
+  selectedDestination.value = null
+  const searchBox = document.getElementById('destination-search')
+  if (searchBox) searchBox.focus()
   hint.value = DEFAULT_HINT
-  const { destination, ...query } = route.query
-  router.replace({ path: '/discover', query })
+  const queryWithoutDestination = Object.assign({}, route.query)
+  delete queryWithoutDestination.destination
+  router.replace({ path: '/discover', query: queryWithoutDestination })
   globe.controls().autoRotate = !reducedMotion.value
-  globe.pointOfView({ lat: 20, lng: 20, altitude: 2.6 }, reducedMotion.value ? 0 : 1000)
-  if (isCompact()) {
+  globe.pointOfView(WHOLE_GLOBE_VIEW, reducedMotion.value ? 0 : 1000)
+  if (isPhoneOrTablet()) {
     // A short wait lets the globe appear on the page before we scroll down to it
-    setTimeout(() => {
-      pagesEl.value?.scrollTo({ top: pagesEl.value.scrollHeight, behavior: reducedMotion.value ? 'instant' : 'smooth' })
+    setTimeout(function () {
+      if (!pagesElement.value) return
+      pagesElement.value.scrollTo({
+        top: pagesElement.value.scrollHeight,
+        behavior: reducedMotion.value ? 'instant' : 'smooth',
+      })
     }, 50)
   }
 }
 
-function addToItinerary(d) {
-  router.push({ path: '/trips/new', query: { destination: d.city, country: d.country, from: route.fullPath } })
+function addToItinerary(destination) {
+  router.push({
+    path: '/trips/new',
+    query: { destination: destination.city, country: destination.country, from: route.fullPath },
+  })
 }
 
-function savePlace(d) {
-  router.push({ path: '/saved', query: { destination: d.id, from: route.fullPath } })
+function savePlace(destination) {
+  router.push({ path: '/saved', query: { destination: destination.id, from: route.fullPath } })
 }
 
+// Opens the pin named in the URL, such as /discover?destination=paris.
 function selectFromRoute() {
-  const d = DESTINATIONS.find(d => d.id === route.query.destination)
-  if (d && globe) selectDestination(d)
-}
-watch(() => route.query.destination, selectFromRoute)
-
-// ----- drag and drop -----
-function onDragStart(e) {
-  e.dataTransfer.effectAllowed = 'move'
-  e.dataTransfer.setData('text/plain', 'traveller') // Firefox needs some data set
-  dragging.value = true
+  const destinationId = route.query.destination
+  const destination = DESTINATIONS.find(function (place) {
+    return place.id === destinationId
+  })
+  if (destination && globe) selectDestination(destination)
 }
 
-function onDragEnd() {
-  dragging.value = false
-  hovered.value = null
-}
+watch(function () { return route.query.destination }, selectFromRoute)
 
-function onDragOver(e) {
-  if (!dragging.value) return
-  e.preventDefault() // allows dropping
-  const c = coordsFromEvent(e)
-  const d = c ? nearestDestination(c.lat, c.lng) : null
-  if (d !== hovered.value) hovered.value = d
-}
-
-function onDrop(e) {
-  if (!dragging.value) return
-  e.preventDefault()
-  const c = coordsFromEvent(e)
-  const d = c ? nearestDestination(c.lat, c.lng) : null
-  dragging.value = false
-  hovered.value = null
-  if (d) selectDestination(d)
-  else hint.value = 'Drop closer to a glowing pin'
-}
-
-watch(reducedMotion, () => {
+watch(reducedMotion, function () {
   if (!globe) return
-  globe.controls().autoRotate = !reducedMotion.value && !selected.value
+  globe.controls().autoRotate = !reducedMotion.value && !selectedDestination.value
   globe.controls().enableDamping = !reducedMotion.value
   globe.ringsData(reducedMotion.value ? [] : DESTINATIONS)
+  applyRoute()
 })
 
-// The canvas is see-through, so the page colour shows behind it; only the glow follows the theme.
-// Changing the colour leaves the camera, pins and auto-rotation as they are.
-watch(theme, () => globe?.atmosphereColor(themeColor('--travel-discover-atmosphere')))
+// Changing the theme recolours the glow, pins and rings.
+watch(theme, function () {
+  if (!globe) return
+  globe.atmosphereColor(themeColor('--travel-discover-atmosphere'))
+  globe.ringColor(ringColour)
+  applyPins()
+  applyRoute()
+})
 
-onMounted(() => {
-  globe = new Globe(globeEl.value, { animateIn: !reducedMotion.value })
-    .globeImageUrl(EARTH)
-    .bumpImageUrl(BUMP)
+onMounted(function () {
+  globe = new Globe(globeElement.value, { animateIn: !reducedMotion.value })
+    .globeImageUrl(EARTH_IMAGE_URL)
+    .bumpImageUrl(BUMP_IMAGE_URL)
     .backgroundColor('rgba(0,0,0,0)')
     .atmosphereColor(themeColor('--travel-discover-atmosphere'))
     .atmosphereAltitude(0.2)
-    .ringsData(reducedMotion.value ? [] : DESTINATIONS) // pulsing ring at each pin's base
-    .ringColor(() => (t) => `rgba(255,210,127,${1 - t})`)
+    .ringsData(reducedMotion.value ? [] : DESTINATIONS) // a pulsing ring at each pin's base
+    .ringColor(ringColour)
     .ringMaxRadius(2.5)
     .ringPropagationSpeed(1.2)
     .ringRepeatPeriod(1400)
     .onPointClick(selectDestination)
+    .onPointHover(function (place) {
+      hoveredDestination.value = place
+    })
 
   applyPins()
+  applyRoute()
 
   const controls = globe.controls()
   controls.autoRotate = !reducedMotion.value
   controls.enableDamping = !reducedMotion.value
   controls.autoRotateSpeed = 0.5
-  controls.enableZoom = false
+  controls.enableZoom = false // pins turn the globe; the user does not zoom it
 
-  globe.pointOfView({ lat: 20, lng: 20, altitude: 2.6 })
+  globe.pointOfView(WHOLE_GLOBE_VIEW)
 
-  // Skip while the globe is hidden (phone/tablet card view) so it keeps its last size
-  const size = () => {
-    const w = globeEl.value.clientWidth
-    const h = globeEl.value.clientHeight
-    if (w && h) globe.width(w).height(h)
+  // The globe is hidden on phones while a card is open, so only resize when it has a size
+  const resizeGlobe = function () {
+    const width = globeElement.value.clientWidth
+    const height = globeElement.value.clientHeight
+    if (width && height) globe.width(width).height(height)
   }
-  size()
-  resizeObserver = new ResizeObserver(size)
-  resizeObserver.observe(globeEl.value)
+  resizeGlobe()
+  resizeObserver = new ResizeObserver(resizeGlobe)
+  resizeObserver.observe(globeElement.value)
+
   selectFromRoute()
 })
 
-onBeforeUnmount(() => {
-  resizeObserver?.disconnect()
-  globe?._destructor?.()
-  globe = null
+onBeforeUnmount(function () {
+  if (resizeObserver) resizeObserver.disconnect()
+  if (globe) {
+    if (globe._destructor) globe._destructor()
+    globe = null
+  }
 })
 </script>
 
 <template>
-  <main class="discover" :class="{ 'is-selected': selected }">
-    <div ref="pagesEl" class="discover-pages">
+  <main class="discover" :class="{ 'is-selected': selectedDestination }">
+    <div ref="pagesElement" class="discover-pages" :style="pagesStyle">
       <!-- Page 1: intro text, or the destination card once a place is picked -->
       <aside class="left-panel">
         <Transition name="slide-left" mode="out-in">
-          <section v-if="!selected" key="intro" class="intro-view d-flex flex-column">
+          <section v-if="!selectedDestination" key="intro" class="intro-view d-flex flex-column">
             <h1 class="page-heading">Discover somewhere new.</h1>
             <p class="muted-copy">Explore the globe, get a recommendation, or let a little curiosity lead the way.</p>
             <div class="action-row mt-3">
@@ -221,25 +273,18 @@ onBeforeUnmount(() => {
             </div>
           </section>
           <div v-else key="card" class="card-view d-flex justify-content-center align-items-center py-3 py-lg-0">
-            <DestinationCard :destination="selected" @vue:mounted="focusDestination" @close="close" @add="addToItinerary" @save="savePlace" />
+            <DestinationCard :destination="selectedDestination" @vue:mounted="focusDestinationCard" @close="closeCard" @add="addToItinerary" @save="savePlace" />
           </div>
         </Transition>
       </aside>
-      <!-- Page 2: globe with the traveller to drag (hidden on phone/tablet while a card is open) -->
-      <section aria-label="Destination globe" class="globe-wrap position-relative overflow-hidden" @dragover="onDragOver" @drop="onDrop">
-        <div ref="globeEl" class="globe" :class="{ targeting: dragging }"></div>
+      <div v-if="selectedDestination" class="panel-splitter" role="separator" aria-orientation="vertical" title="Drag to resize" @pointerdown="startResize"></div>
+      <!-- Page 2: the globe. Click a pin to open its card and turn the globe to that place. -->
+      <section aria-label="Destination globe" class="globe-wrap position-relative overflow-hidden">
+        <div ref="globeElement" class="globe" :class="{ pointing: hoveredDestination }"></div>
 
         <p v-if="hint" class="hint position-absolute start-50 translate-middle-x text-center small pe-none">
           {{ hint }}
         </p>
-
-        <div class="traveller position-absolute d-flex align-items-center justify-content-center rounded-circle"
-          draggable="true" title="Drag me onto a destination" @dragstart="onDragStart" @dragend="onDragEnd">
-          <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true">
-            <circle cx="12" cy="8" r="4" fill="currentColor" />
-            <path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7z" fill="currentColor" />
-          </svg>
-        </div>
       </section>
     </div>
   </main>
@@ -302,8 +347,9 @@ onBeforeUnmount(() => {
   mask-repeat: no-repeat;
 }
 
-.globe.targeting {
-  cursor: crosshair;
+.globe.pointing,
+.globe.pointing :deep(canvas) {
+  cursor: pointer;
 }
 
 .hint {
@@ -311,22 +357,6 @@ onBeforeUnmount(() => {
   width: 90%;
   color: var(--travel-globe-hint);
   z-index: 5;
-}
-
-.traveller {
-  right: 28px;
-  bottom: 28px;
-  z-index: 5;
-  width: 52px;
-  height: 52px;
-  background: #ffd27f;
-  color: #0d1a33;
-  cursor: grab;
-  box-shadow: 0 0 24px rgba(255, 210, 127, 0.6);
-}
-
-.traveller:active {
-  cursor: grabbing;
 }
 
 .slide-left-enter-active,
@@ -339,6 +369,12 @@ onBeforeUnmount(() => {
   transform: translateX(-30px);
   opacity: 0;
 }
+
+/* The divider only shows on tablets and laptops, where the card and globe sit side by side */
+.panel-splitter {
+  display: none;
+}
+
 
 /* Phones and tablets (767px and below) */
 @media (max-width: 767.98px) {
@@ -367,8 +403,16 @@ onBeforeUnmount(() => {
   }
 }
 
-/* Laptop (768px and up): intro/card on the left, globe on the right, side by side */
-@media (min-width: 768px) {
+/* iPad and small laptops (768px to 1199px): side by side, with the card column a little wider */
+@media (min-width: 768px) and (max-width: 1199.98px) {
+  .panel-splitter {
+    display: block;
+    flex: 0 0 8px;
+    cursor: col-resize;
+    touch-action: none;
+    background: var(--travel-discover-card-bg);
+  }
+
   .discover-pages {
     flex-direction: row;
     overflow: hidden;
@@ -376,8 +420,48 @@ onBeforeUnmount(() => {
   }
 
   .left-panel {
-    flex: 0 0 40%;
-    width: 40%;
+    flex: 0 0 var(--left-panel-width, 46%);
+    width: var(--left-panel-width, 46%);
+    overflow-y: auto;
+  }
+
+  .discover.is-selected .left-panel { overflow: hidden; }
+
+  .card-view {
+    height: 100%;
+    min-height: 0;
+  }
+
+  .intro-view {
+    justify-content: center;
+    padding: 2rem clamp(1.5rem, 4vw, 2.5rem);
+  }
+
+  .globe-wrap {
+    flex: 1 1 auto;
+    width: auto;
+  }
+}
+
+/* Laptops and desktops (1200px and up): intro/card on the left, globe on the right, side by side */
+@media (min-width: 1200px) {
+  .panel-splitter {
+    display: block;
+    flex: 0 0 8px;
+    cursor: col-resize;
+    touch-action: none;
+    background: var(--travel-discover-card-bg);
+  }
+
+  .discover-pages {
+    flex-direction: row;
+    overflow: hidden;
+    scroll-snap-type: none;
+  }
+
+  .left-panel {
+    flex: 0 0 var(--left-panel-width, 40%);
+    width: var(--left-panel-width, 40%);
     overflow-y: auto;
   }
 
@@ -397,11 +481,6 @@ onBeforeUnmount(() => {
   .globe-wrap {
     flex: 1 1 auto;
     width: auto;
-  }
-
-  /* Remove the card's outside margin so it sits neatly in the column (laptop only) */
-  .card-view :deep(.dest-card) {
-    margin: 0;
   }
 }
 </style>
