@@ -23,7 +23,7 @@ Real trips are private: the itinerary, budget and checklist APIs only answer to 
 
 ## 2. Run it locally
 
-**Prerequisites:** Git, Node.js (22.18+ or 24.12+) and [pnpm](https://pnpm.io).
+**Prerequisites:** Git, Node.js (22.18+ or 24.12+), nodemon and [pnpm](https://pnpm.io).
 
 ```bash
 git clone https://github.com/uenxj/WAD2_TravelPlaces.git
@@ -37,11 +37,12 @@ pnpm install
 pnpm dev
 ```
 
-Open the address Vite prints (http://localhost:5173). Browsing and the sample trips work. Accounts, real trips and budgets need the server below.
+Open the address Vite prints (http://localhost:5173). Browsing and the sample trips work. Accounts, real trips and budgets need the server below. Errors will be shown because backend connection is needed for some features.
 
 **Option B: full app (front end and API)**
 
-1. Copy `server/.env.example` to `server/.env` and fill in the values (see below).
+
+1. Place .env file at server/.env and client/GoingSomewhere/.env
 2. Start the API in one terminal:
 
    ```bash
