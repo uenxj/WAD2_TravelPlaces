@@ -118,6 +118,9 @@ In line with the course policy, these are the parts of the project that were wri
 | Clash detection (overlapping times, shown live in the form and blocked), duplicate-activity prompt, same name not allowed twice on one day | `src/itinerary/conflicts.js`, `duplicates.js`, `src/components/itinerary/DuplicateActivityModal.vue`, `ActivityFormModal.vue` | Claude | Yong Xuan Sam |
 | Itinerary tests (server, client unit and end-to-end) | `server/test/itinerary*.test.js`, `itineraryHelpers.js`, `itineraryPlaces.test.js`, `src/itinerary/*.test.js`, `tests/e2e/itinerary.spec.js`, `tests/e2e/itinerary-server.cjs` | Claude | Yong Xuan Sam |
 | Knowing how to use e2e for testing API, knowing how to use API, troubleshooting UI | test/e2e/discover.spec.js | Claude | Xuan|
+| Weather, air quality and PSI checks (Open-Meteo, data.gov.sg), weather page, activity conditions and itinerary atmosphere (PR #15) | `src/weather/`, `src/views/Weather.vue`, `src/components/ActivityConditions.vue`, `ItineraryAtmosphere.vue`, `src/data/sampleTrips.js` | CODEX | Charlene |
+| Weather tests (unit and end-to-end) | `src/weather/*.test.js`, `tests/e2e/weather.spec.js` | CODEX | Charlene |
+| Quiz, landing page and Profile page changes | `src/views/Quiz.vue`, `Home.vue`, `AccountPage.vue` | CODEX | Charlene |
 
 
 
