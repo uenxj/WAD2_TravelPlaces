@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test:e2e": "playwright test",
     "test:weather": "node --test src/weather/*.test.js",
-    "server": "nodemon server/server.js",
+    "server": "node server/server.js",
+    "server:dev": "nodemon server/server.js",
     "test:budget": "node --test server/test/budgetMongoStore.test.js server/test/budgetAccess.test.js src/budget/*.test.js",
     "test:auth": "node --test server/test/auth.test.js",
     "test:checklist": "node --test server/test/checklist.test.js src/checklist/catalog.test.js src/checklist/itemArt.test.js src/checklist/recommend.test.js src/checklist/tripSignals.test.js",
@@ -28,6 +29,7 @@
   "devDependencies": {
     "@playwright/test": "^1.64.1",
     "@vitejs/plugin-vue": "^6.0.8",
+    "nodemon": "^3.1.14",
     "playwright": "^1.64.1",
     "vite": "^8.2.2",
     "vite-plugin-vue-devtools": "^8.2.1"
