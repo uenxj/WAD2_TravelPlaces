@@ -25,6 +25,12 @@ Real trips are private: the itinerary, budget and checklist APIs only answer to 
 
 **Prerequisites:** Git, Node.js (22.18+ or 24.12+), nodemon and [pnpm](https://pnpm.io).
 
+Installing nodemon
+```bash
+pnpm add -D nodemon
+```
+
+Downloading dependencies
 ```bash
 git clone https://github.com/uenxj/WAD2_TravelPlaces.git
 cd WAD2_TravelPlaces/client/GoingSomewhere
